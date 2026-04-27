@@ -22,6 +22,7 @@ import {
   Eye,
   ArrowRightLeft,
   ChevronRight,
+  ArrowRight,
   AlertCircle,
   Search,
   Pencil,
@@ -531,6 +532,7 @@ function WarehouseDetail({
 function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   const [products, setProducts] = useState<Product[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [selectedWarehouse, setSelectedWarehouse] = useState('')
@@ -539,16 +541,35 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
 
-  // Product add dialog state
+  // Product add dialog state (for adding product to order)
   const [addDialogOpen, setAddDialogOpen] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [inputKg, setInputKg] = useState('')
   const [inputPricePerKg, setInputPricePerKg] = useState('')
 
-  useEffect(() => {
+  // New product dialog state
+  const [newProductOpen, setNewProductOpen] = useState(false)
+  const [newProdNameUz, setNewProdNameUz] = useState('')
+  const [newProdName, setNewProdName] = useState('')
+  const [newProdCategoryId, setNewProdCategoryId] = useState('')
+  const [newProdPrice, setNewProdPrice] = useState('')
+  const [newProdUnit, setNewProdUnit] = useState('kg')
+
+  // Price edit dialog state
+  const [editPriceOpen, setEditPriceOpen] = useState(false)
+  const [editPriceProduct, setEditPriceProduct] = useState<Product | null>(null)
+  const [editPriceValue, setEditPriceValue] = useState('')
+  const [editPriceName, setEditPriceName] = useState('')
+
+  const refreshProducts = useCallback(() => {
     fetch('/api/products').then((r) => r.json()).then((d) => setProducts(d.products || []))
-    fetch('/api/warehouses').then((r) => r.json()).then((d) => setWarehouses(d.warehouses || []))
   }, [])
+
+  useEffect(() => {
+    refreshProducts()
+    fetch('/api/warehouses').then((r) => r.json()).then((d) => setWarehouses(d.warehouses || []))
+    fetch('/api/products/categories').then((r) => r.json()).then((d) => setCategories(d.categories || []))
+  }, [refreshProducts])
 
   // Open dialog when clicking a product
   const openAddDialog = (product: Product) => {
@@ -592,6 +613,81 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
     toast({ title: `${selectedProduct.nameUz} ${kg} kg qo'shildi`, duration: 1500 })
     setAddDialogOpen(false)
     setSelectedProduct(null)
+  }
+
+  // Handle adding a brand new product
+  const handleNewProduct = async () => {
+    if (!newProdNameUz.trim() || !newProdCategoryId || !newProdPrice) {
+      toast({ title: "Barcha maydonlarni to'ldiring", variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newProdName.trim() || newProdNameUz.trim(),
+          nameUz: newProdNameUz.trim(),
+          categoryId: newProdCategoryId,
+          price: newProdPrice,
+          unit: newProdUnit,
+          image: '/products/default.jpg',
+          stock: 100,
+        }),
+      })
+      if (res.ok) {
+        toast({ title: 'Yangi mahsulot qo\'shildi!' })
+        setNewProductOpen(false)
+        setNewProdNameUz('')
+        setNewProdName('')
+        setNewProdCategoryId('')
+        setNewProdPrice('')
+        setNewProdUnit('kg')
+        refreshProducts()
+      } else {
+        toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
+    }
+  }
+
+  // Open price edit dialog
+  const openPriceEditDialog = (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditPriceProduct(product)
+    setEditPriceName(product.nameUz)
+    setEditPriceValue(String(product.price))
+    setEditPriceOpen(true)
+  }
+
+  // Handle price update
+  const handlePriceUpdate = async () => {
+    if (!editPriceProduct || !editPriceValue) {
+      toast({ title: 'Narxni kiriting', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: editPriceProduct.id,
+          nameUz: editPriceName,
+          price: parseFloat(editPriceValue),
+        }),
+      })
+      if (res.ok) {
+        toast({ title: `${editPriceProduct.nameUz} narxi yangilandi!` })
+        setEditPriceOpen(false)
+        setEditPriceProduct(null)
+        refreshProducts()
+      } else {
+        toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
+    }
   }
 
   const removeItem = (productId: string) => {
@@ -691,7 +787,68 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center justify-between">
             <span>Mahsulot qo&apos;shish</span>
-            <Badge variant="secondary">{orderItems.length} ta</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary">{orderItems.length} ta</Badge>
+              <Dialog open={newProductOpen} onOpenChange={setNewProductOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700 rounded-lg h-8 text-xs px-3">
+                    <Plus className="h-3 w-3 mr-1" /> Yangi mahsulot
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Yangi mahsulot qo&apos;shish</DialogTitle>
+                    <DialogDescription>Yangi kelgan mahsulotni qo&apos;shing va narxini belgilang</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Mahsulot nomi (o&apos;zbekcha)</Label>
+                      <Input placeholder="Masalan: Pomidor" value={newProdNameUz} onChange={(e) => setNewProdNameUz(e.target.value)} className="h-11 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Mahsulot nomi (ruscha)</Label>
+                      <Input placeholder="Masalan: Tomat" value={newProdName} onChange={(e) => setNewProdName(e.target.value)} className="h-11 rounded-xl" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Kategoriya</Label>
+                      <Select value={newProdCategoryId} onValueChange={setNewProdCategoryId}>
+                        <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Kategoriya tanlang" /></SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>{c.icon} {c.nameUz}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Narxi (so&apos;m)</Label>
+                        <div className="relative">
+                          <Input type="number" placeholder="15000" value={newProdPrice} onChange={(e) => setNewProdPrice(e.target.value)} className="h-11 rounded-xl pr-10" />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">so&apos;m</span>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>O&apos;lchov birligi</Label>
+                        <Select value={newProdUnit} onValueChange={setNewProdUnit}>
+                          <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="kg">kg</SelectItem>
+                            <SelectItem value="dona">dona</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setNewProductOpen(false)} className="rounded-xl">Bekor</Button>
+                    <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl" onClick={handleNewProduct}>
+                      <Plus className="h-4 w-4 mr-1" /> Qo&apos;shish
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -702,27 +859,37 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
           <ScrollArea className="max-h-48">
             <div className="space-y-1">
               {filteredProducts.slice(0, 20).map((p) => (
-                <button
+                <div
                   key={p.id}
-                  className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-emerald-50 transition-colors text-left"
+                  className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-emerald-50 transition-colors text-left cursor-pointer group"
                   onClick={() => openAddDialog(p)}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
                     <span>{p.category.icon}</span>
-                    <span className="text-sm font-medium">{p.nameUz}</span>
+                    <span className="text-sm font-medium truncate">{p.nameUz}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-sm font-semibold text-emerald-700">{formatPrice(p.price)}</span>
-                    <span className="text-xs text-gray-400">/{p.unit}</span>
+                  <div className="flex items-center gap-1">
+                    <div className="text-right">
+                      <span className="text-sm font-semibold text-emerald-700">{formatPrice(p.price)}</span>
+                      <span className="text-xs text-gray-400">/{p.unit}</span>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 rounded opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 hover:bg-blue-50 shrink-0"
+                      onClick={(e) => openPriceEditDialog(p, e)}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </Button>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </ScrollArea>
         </CardContent>
       </Card>
 
-      {/* Product Add Dialog */}
+      {/* Product Add Dialog (kg/price for order) */}
       <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) setSelectedProduct(null) }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -792,6 +959,51 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
             </Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-11 px-6" onClick={confirmAddProduct}>
               <Plus className="h-4 w-4 mr-2" /> Qo&apos;shish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Price Edit Dialog */}
+      <Dialog open={editPriceOpen} onOpenChange={(open) => { setEditPriceOpen(open); if (!open) setEditPriceProduct(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Narxni tahrirlash</DialogTitle>
+            <DialogDescription>
+              {editPriceProduct?.category.icon} {editPriceProduct?.nameUz}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-4">
+            <div className="space-y-2">
+              <Label>Mahsulot nomi</Label>
+              <Input value={editPriceName} onChange={(e) => setEditPriceName(e.target.value)} className="h-11 rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label>1 {editPriceProduct?.unit || 'kg'} narxi (so&apos;m)</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  value={editPriceValue}
+                  onChange={(e) => setEditPriceValue(e.target.value)}
+                  className="h-12 text-lg rounded-xl pr-10"
+                  autoFocus
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">so&apos;m</span>
+              </div>
+              {editPriceProduct && parseFloat(editPriceValue) > 0 && parseFloat(editPriceValue) !== editPriceProduct.price && (
+                <div className="flex items-center gap-2 text-sm mt-2">
+                  <span className="text-gray-400">Eski narx:</span>
+                  <span className="line-through text-gray-400">{formatPrice(editPriceProduct.price)}</span>
+                  <ArrowRight className="h-3 w-3 text-gray-400" />
+                  <span className="font-bold text-emerald-700">{formatPrice(parseFloat(editPriceValue))}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-xl h-11" onClick={() => setEditPriceOpen(false)}>Bekor</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-11 px-6" onClick={handlePriceUpdate}>
+              <Pencil className="h-4 w-4 mr-2" /> Saqlash
             </Button>
           </DialogFooter>
         </DialogContent>

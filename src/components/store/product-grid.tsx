@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { formatPrice } from '@/lib/format'
 import { Plus, Minus, Star, Search, Package } from 'lucide-react'
@@ -8,31 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useCartStore } from '@/store/cart-store'
+import { useDataStore, type CustomerProduct } from '@/store/data-store'
 import { useToast } from '@/hooks/use-toast'
-
-interface WarehouseInfo {
-  name: string
-  address: string
-}
-
-interface Product {
-  id: string
-  name: string
-  nameUz: string
-  price: number
-  oldPrice: number | null
-  unit: string
-  image: string
-  stock: number
-  isFeatured: boolean
-  category: {
-    id: string
-    name: string
-    nameUz: string
-    icon: string
-  }
-  warehouses: WarehouseInfo[]
-}
 
 interface ProductGridProps {
   categoryId: string
@@ -40,38 +17,38 @@ interface ProductGridProps {
 }
 
 export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const { items, addItem, updateQuantity } = useCartStore()
+  const items = useCartStore((s) => s.items)
+  const addItem = useCartStore((s) => s.addItem)
+  const updateQuantity = useCartStore((s) => s.updateQuantity)
   const { toast } = useToast()
 
-  const fetchProducts = useCallback((catId: string, query: string) => {
-    setLoading(true)
-    const params = new URLSearchParams()
-    if (catId && catId !== 'all') params.set('categoryId', catId)
-    if (query) params.set('search', query)
+  // Get all customer-visible products from the data store
+  const allProducts = useDataStore((s) => s.getProductsForCustomer())
 
-    return fetch(`/api/products?${params.toString()}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setProducts(data.products || [])
-      })
-      .finally(() => {
-        setLoading(false)
-      })
-  }, [])
-
-  useEffect(() => {
-    fetchProducts(categoryId, searchQuery)
-  }, [categoryId, searchQuery, fetchProducts])
+  // Filter by category and search
+  const products = useMemo(() => {
+    let filtered = allProducts
+    if (categoryId && categoryId !== 'all') {
+      filtered = filtered.filter((p) => p.category.id === categoryId)
+    }
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase()
+      filtered = filtered.filter(
+        (p) =>
+          p.nameUz.toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q)
+      )
+    }
+    return filtered
+  }, [allProducts, categoryId, searchQuery])
 
   const getQuantity = (productId: string) => {
     return items.find((i) => i.productId === productId)?.quantity || 0
   }
 
-  const handleAdd = (product: Product) => {
+  const handleAdd = (product: CustomerProduct) => {
     const currentQty = getQuantity(product.id)
-    const stock = Number(product.stock) || 0
+    const stock = product.stock
 
     if (currentQty >= stock) {
       toast({
@@ -83,7 +60,7 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
       return
     }
 
-    // Determine the best warehouse for this item
+    // Find the warehouse with the most stock for this product
     const warehouseInfo = product.warehouses?.[0] || null
     if (warehouseInfo) {
       useCartStore.getState().setWarehouseInfo(warehouseInfo)
@@ -120,17 +97,8 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
         />
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="bg-gray-100 rounded-2xl h-64 animate-pulse" />
-          ))}
-        </div>
-      )}
-
       {/* No Products */}
-      {!loading && products.length === 0 && (
+      {products.length === 0 && (
         <div className="text-center py-20">
           <div className="text-6xl mb-4">📦</div>
           <h3 className="text-xl font-bold text-gray-700">Hozircha mahsulot yo&apos;q</h3>
@@ -139,11 +107,11 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
       )}
 
       {/* Products */}
-      {!loading && (
+      {products.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {products.map((product) => {
             const quantity = getQuantity(product.id)
-            const stock = Number(product.stock) || 0
+            const stock = product.stock
             const isMaxed = quantity >= stock
             const discount = product.oldPrice
               ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)

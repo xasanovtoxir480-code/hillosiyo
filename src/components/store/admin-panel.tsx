@@ -53,6 +53,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCartStore } from '@/store/cart-store'
+import { useDataStore } from '@/store/data-store'
 import { formatPrice, formatDate } from '@/lib/format'
 import { useToast } from '@/hooks/use-toast'
 
@@ -464,11 +465,8 @@ function WarehouseDetail({
   onBack: () => void
   warehouses: Warehouse[]
 }) {
-  const [stock, setStock] = useState<WarehouseStockItem[]>([])
-  const [loading, setLoading] = useState(true)
   const [addProductOpen, setAddProductOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false)
-  const [products, setProducts] = useState<Product[]>([])
   const { toast } = useToast()
 
   // Add product state
@@ -480,89 +478,45 @@ function WarehouseDetail({
   const [transferQuantity, setTransferQuantity] = useState('')
   const [transferToWarehouse, setTransferToWarehouse] = useState('')
 
-  const fetchStock = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/stock?warehouseId=${warehouse.id}`)
-      const data = await res.json()
-      setStock(data.stock || [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
+  // Subscribe to store data
+  const stock = useDataStore((s) => s.getWarehouseStock(warehouse.id))
+  const products = useDataStore((s) => s.products.map((p) => {
+    const cat = s.categories.find((c) => c.id === p.categoryId)
+    return {
+      ...p,
+      category: { id: cat?.id || '', icon: cat?.icon || '', nameUz: cat?.nameUz || '' },
+      stock: s.getTotalStockForProduct(p.id),
     }
-  }, [warehouse.id])
+  }))
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      const res = await fetch('/api/products?admin=true')
-      const data = await res.json()
-      setProducts(data.products || [])
-    } catch (err) {
-      console.error(err)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchStock()
-    fetchProducts()
-  }, [fetchStock, fetchProducts])
-
-  const handleAddProduct = async () => {
+  const handleAddProduct = () => {
     if (!addProductId || !addQuantity || parseInt(addQuantity) <= 0) {
       toast({ title: 'Mahsulot va miqdorni kiriting', variant: 'destructive' })
       return
     }
-    try {
-      const res = await fetch('/api/stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          warehouseId: warehouse.id,
-          productId: addProductId,
-          quantity: parseInt(addQuantity),
-        }),
-      })
-      if (res.ok) {
-        toast({ title: 'Mahsulot qo\'shildi!' })
-        setAddProductOpen(false)
-        setAddProductId('')
-        setAddQuantity('')
-        fetchStock()
-      }
-    } catch {
-      toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
-    }
+    useDataStore.getState().addStock(warehouse.id, addProductId, parseInt(addQuantity))
+    toast({ title: 'Mahsulot qo\'shildi!' })
+    setAddProductOpen(false)
+    setAddProductId('')
+    setAddQuantity('')
   }
 
-  const handleTransfer = async () => {
+  const handleTransfer = () => {
     if (!transferProductId || !transferQuantity || !transferToWarehouse) {
       toast({ title: 'Barcha maydonlarni to\'ldiring', variant: 'destructive' })
       return
     }
-    try {
-      const res = await fetch('/api/transfer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fromWarehouseId: warehouse.id,
-          toWarehouseId: transferToWarehouse,
-          productId: transferProductId,
-          quantity: parseInt(transferQuantity),
-        }),
-      })
-      const data = await res.json()
-      if (res.ok) {
-        toast({ title: 'Muvaffaqiyatli o\'tkazildi!', description: data.message })
-        setTransferOpen(false)
-        setTransferProductId('')
-        setTransferQuantity('')
-        setTransferToWarehouse('')
-        fetchStock()
-      } else {
-        toast({ title: data.error || 'Xatolik', variant: 'destructive' })
-      }
-    } catch {
-      toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
+    const success = useDataStore.getState().transferStock(
+      warehouse.id, transferToWarehouse, transferProductId, parseInt(transferQuantity)
+    )
+    if (success) {
+      toast({ title: 'Muvaffaqiyatli o\'tkazildi!' })
+      setTransferOpen(false)
+      setTransferProductId('')
+      setTransferQuantity('')
+      setTransferToWarehouse('')
+    } else {
+      toast({ title: 'Miqdor yetarli emas', variant: 'destructive' })
     }
   }
 
@@ -701,9 +655,7 @@ function WarehouseDetail({
           <CardTitle className="text-base">Ombordagi mahsulotlar ({stock.filter((s) => s.quantity > 0).length})</CardTitle>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>
-          ) : stock.length === 0 ? (
+          {stock.length === 0 ? (
             <div className="text-center py-8 text-gray-400">
               <Package className="h-10 w-10 mx-auto mb-2 opacity-30" />
               <p className="text-sm">Ombor bo&apos;sh</p>
@@ -750,9 +702,6 @@ function WarehouseDetail({
 
 // ========== CREATE ORDER VIEW ==========
 function CreateOrderView({ onCreated }: { onCreated: () => void }) {
-  const [products, setProducts] = useState<Product[]>([])
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [selectedWarehouse, setSelectedWarehouse] = useState('')
@@ -783,15 +732,17 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   const [editPriceName, setEditPriceName] = useState('')
   const [editPriceImage, setEditPriceImage] = useState('')
 
-  const refreshProducts = useCallback(() => {
-    fetch('/api/products?admin=true').then((r) => r.json()).then((d) => setProducts(d.products || []))
-  }, [])
-
-  useEffect(() => {
-    refreshProducts()
-    fetch('/api/warehouses').then((r) => r.json()).then((d) => setWarehouses(d.warehouses || []))
-    fetch('/api/products/categories').then((r) => r.json()).then((d) => setCategories(d.categories || []))
-  }, [refreshProducts])
+  // Subscribe to store data
+  const products = useDataStore((s) => s.products.map((p) => {
+    const cat = s.categories.find((c) => c.id === p.categoryId)
+    return {
+      ...p,
+      category: { id: cat?.id || '', icon: cat?.icon || '', nameUz: cat?.nameUz || '' },
+      stock: s.getTotalStockForProduct(p.id),
+    }
+  }))
+  const warehouses = useDataStore((s) => s.warehouses)
+  const categories = useDataStore((s) => s.categories)
 
   // Open dialog when clicking a product
   const openAddDialog = (product: Product) => {
@@ -838,43 +789,30 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   }
 
   // Handle adding a brand new product
-  const handleNewProduct = async () => {
+  const handleNewProduct = () => {
     if (!newProdNameUz.trim() || !newProdCategoryId || !newProdPrice) {
       toast({ title: "Barcha maydonlarni to'ldiring", variant: 'destructive' })
       return
     }
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newProdName.trim() || newProdNameUz.trim(),
-          nameUz: newProdNameUz.trim(),
-          categoryId: newProdCategoryId,
-          price: parseFloat(newProdPrice),
-          unit: newProdUnit,
-          image: newProdImage || undefined,
-          stock: 100,
-        }),
-      })
-      if (res.ok) {
-        toast({ title: 'Yangi mahsulot qo\'shildi!' })
-        setNewProductOpen(false)
-        setNewProdNameUz('')
-        setNewProdName('')
-        setNewProdCategoryId('')
-        setNewProdPrice('')
-        setNewProdUnit('kg')
-        setNewProdImage('')
-        refreshProducts()
-      } else {
-        const data = await res.json()
-        toast({ title: data.error || 'Xatolik yuz berdi', variant: 'destructive' })
-      }
-    } catch (err) {
-      console.error('New product error:', err)
-      toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
-    }
+    useDataStore.getState().addProduct({
+      name: newProdName.trim() || newProdNameUz.trim(),
+      nameUz: newProdNameUz.trim(),
+      categoryId: newProdCategoryId,
+      price: parseFloat(newProdPrice),
+      unit: newProdUnit,
+      image: newProdImage || '',
+      oldPrice: null,
+      isActive: true,
+      isFeatured: false,
+    })
+    toast({ title: 'Yangi mahsulot qo\'shildi!' })
+    setNewProductOpen(false)
+    setNewProdNameUz('')
+    setNewProdName('')
+    setNewProdCategoryId('')
+    setNewProdPrice('')
+    setNewProdUnit('kg')
+    setNewProdImage('')
   }
 
   // Open price edit dialog
@@ -888,33 +826,19 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   }
 
   // Handle price update
-  const handlePriceUpdate = async () => {
+  const handlePriceUpdate = () => {
     if (!editPriceProduct || !editPriceValue) {
       toast({ title: 'Narxni kiriting', variant: 'destructive' })
       return
     }
-    try {
-      const res = await fetch('/api/products', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: editPriceProduct.id,
-          nameUz: editPriceName,
-          price: parseFloat(editPriceValue),
-          image: editPriceImage || undefined,
-        }),
-      })
-      if (res.ok) {
-        toast({ title: `${editPriceProduct.nameUz} narxi yangilandi!` })
-        setEditPriceOpen(false)
-        setEditPriceProduct(null)
-        refreshProducts()
-      } else {
-        toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
-      }
-    } catch {
-      toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
-    }
+    useDataStore.getState().updateProduct(editPriceProduct.id, {
+      nameUz: editPriceName,
+      price: parseFloat(editPriceValue),
+      image: editPriceImage || '',
+    })
+    toast({ title: `${editPriceProduct.nameUz} narxi yangilandi!` })
+    setEditPriceOpen(false)
+    setEditPriceProduct(null)
   }
 
   const removeItem = (productId: string) => {
@@ -1281,12 +1205,26 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
 
 // ========== PRODUCTS VIEW ==========
 function ProductsView() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterCategory, setFilterCategory] = useState('all')
   const { toast } = useToast()
+
+  // Subscribe to store data
+  const products = useDataStore((s) => s.products.map((p) => {
+    const cat = s.categories.find((c) => c.id === p.categoryId)
+    return {
+      ...p,
+      category: { id: cat?.id || '', icon: cat?.icon || '', nameUz: cat?.nameUz || '' },
+      stock: s.getTotalStockForProduct(p.id),
+    }
+  }))
+  const categories = useDataStore((s) => s.categories)
+
+  // Simulate initial loading
+  useEffect(() => {
+    setLoading(false)
+  }, [])
 
   // Add product dialog
   const [addOpen, setAddOpen] = useState(false)
@@ -1304,65 +1242,30 @@ function ProductsView() {
   const [editNameUz, setEditNameUz] = useState('')
   const [editImage, setEditImage] = useState('')
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const [productsRes, categoriesRes] = await Promise.all([
-        fetch('/api/products?admin=true'),
-        fetch('/api/products/categories'),
-      ])
-      const productsData = await productsRes.json()
-      const categoriesData = await categoriesRes.json()
-      setProducts(productsData.products || [])
-      setCategories(categoriesData.categories || [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
-
-  const handleAddProduct = async () => {
+  const handleAddProduct = () => {
     if (!newNameUz.trim() || !newCategoryId || !newPrice) {
       toast({ title: "Barcha maydonlarni to'ldiring", variant: 'destructive' })
       return
     }
-    try {
-      const res = await fetch('/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName.trim() || newNameUz.trim(),
-          nameUz: newNameUz.trim(),
-          categoryId: newCategoryId,
-          price: parseFloat(newPrice),
-          unit: newUnit,
-          image: newImage || undefined,
-          stock: 100,
-        }),
-      })
-      if (res.ok) {
-        toast({ title: 'Mahsulot qo\'shildi!' })
-        setAddOpen(false)
-        setNewName('')
-        setNewNameUz('')
-        setNewCategoryId('')
-        setNewPrice('')
-        setNewUnit('kg')
-        setNewImage('')
-        fetchData()
-      } else {
-        const data = await res.json()
-        toast({ title: data.error || 'Xatolik yuz berdi', variant: 'destructive' })
-      }
-    } catch (err) {
-      console.error('Add product error:', err)
-      toast({ title: 'Xatolik', variant: 'destructive' })
-    }
+    useDataStore.getState().addProduct({
+      name: newName.trim() || newNameUz.trim(),
+      nameUz: newNameUz.trim(),
+      categoryId: newCategoryId,
+      price: parseFloat(newPrice),
+      unit: newUnit,
+      image: newImage || '',
+      oldPrice: null,
+      isActive: true,
+      isFeatured: false,
+    })
+    toast({ title: 'Mahsulot qo\'shildi!' })
+    setAddOpen(false)
+    setNewName('')
+    setNewNameUz('')
+    setNewCategoryId('')
+    setNewPrice('')
+    setNewUnit('kg')
+    setNewImage('')
   }
 
   const openEditDialog = (product: Product) => {
@@ -1373,47 +1276,25 @@ function ProductsView() {
     setEditOpen(true)
   }
 
-  const handleEditProduct = async () => {
+  const handleEditProduct = () => {
     if (!editProduct || !editPrice) {
       toast({ title: 'Narxni kiriting', variant: 'destructive' })
       return
     }
-    try {
-      const res = await fetch('/api/products', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productId: editProduct.id,
-          nameUz: editNameUz,
-          price: parseFloat(editPrice),
-          image: editImage || undefined,
-        }),
-      })
-      if (res.ok) {
-        toast({ title: `${editProduct.nameUz} narxi yangilandi!` })
-        setEditOpen(false)
-        setEditProduct(null)
-        fetchData()
-      }
-    } catch {
-      toast({ title: 'Xatolik', variant: 'destructive' })
-    }
+    useDataStore.getState().updateProduct(editProduct.id, {
+      nameUz: editNameUz,
+      price: parseFloat(editPrice),
+      image: editImage || '',
+    })
+    toast({ title: `${editProduct.nameUz} narxi yangilandi!` })
+    setEditOpen(false)
+    setEditProduct(null)
   }
 
-  const handleDeleteProduct = async (productId: string, productName: string) => {
+  const handleDeleteProduct = (productId: string, productName: string) => {
     if (!confirm(`${productName} mahsulotini o\'chirishni tasdiqlaysizmi?`)) return
-    try {
-      const res = await fetch(`/api/products?id=${productId}`, { method: 'DELETE' })
-      if (res.ok) {
-        toast({ title: `${productName} o'chirildi` })
-        fetchData()
-      } else {
-        const data = await res.json()
-        toast({ title: data.error || 'Xatolik', variant: 'destructive' })
-      }
-    } catch {
-      toast({ title: 'Xatolik', variant: 'destructive' })
-    }
+    useDataStore.getState().deleteProduct(productId)
+    toast({ title: `${productName} o'chirildi` })
   }
 
   const filteredProducts = products.filter((p) => {
@@ -1652,10 +1533,23 @@ export function AdminPanel() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [activeTab, setActiveTab] = useState<AdminTab>('orders')
   const [orders, setOrders] = useState<Order[]>([])
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null)
+
+  // Subscribe to warehouse data from store
+  const warehouseStockCounts = useDataStore((s) => {
+    const counts: Record<string, { stock: number }> = {}
+    s.warehouseStock.forEach((ws) => {
+      if (!counts[ws.warehouseId]) counts[ws.warehouseId] = { stock: 0 }
+      if (ws.quantity > 0) counts[ws.warehouseId].stock++
+    })
+    return counts
+  })
+  const warehouses = useDataStore((s) => s.warehouses.map((w) => ({
+    ...w,
+    _count: { stock: warehouseStockCounts[w.id]?.stock || 0, orders: 0 },
+  })))
 
   // Add warehouse dialog
   const [newWhName, setNewWhName] = useState('')
@@ -1676,14 +1570,9 @@ export function AdminPanel() {
   const fetchData = useCallback(async () => {
     setLoading(true)
     try {
-      const [ordersRes, warehousesRes] = await Promise.all([
-        fetch('/api/orders'),
-        fetch('/api/warehouses'),
-      ])
+      const ordersRes = await fetch('/api/orders')
       const ordersData = await ordersRes.json()
-      const warehousesData = await warehousesRes.json()
       setOrders(ordersData.orders || [])
-      setWarehouses(warehousesData.warehouses || [])
     } catch (err) {
       console.error(err)
     } finally {
@@ -1718,50 +1607,34 @@ export function AdminPanel() {
     }
   }
 
-  const handleAddWarehouse = async () => {
+  const handleAddWarehouse = () => {
     if (!newWhName.trim() || !newWhAddress.trim() || !newWhDistrict.trim()) {
       toast({ title: "Barcha maydonlarni to'ldiring", variant: 'destructive' })
       return
     }
-    try {
-      const res = await fetch('/api/warehouses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newWhName, address: newWhAddress, district: newWhDistrict }),
-      })
-      if (res.ok) {
-        toast({ title: 'Ombor qo\'shildi!' })
-        setAddWhOpen(false)
-        setNewWhName('')
-        setNewWhAddress('')
-        setNewWhDistrict('')
-        fetchData()
-      }
-    } catch {
-      toast({ title: 'Xatolik', variant: 'destructive' })
-    }
+    useDataStore.getState().addWarehouse({
+      name: newWhName,
+      address: newWhAddress,
+      district: newWhDistrict,
+      isActive: true,
+    })
+    toast({ title: 'Ombor qo\'shildi!' })
+    setAddWhOpen(false)
+    setNewWhName('')
+    setNewWhAddress('')
+    setNewWhDistrict('')
   }
 
-  const handleDeleteWarehouse = async (whId: string) => {
-    try {
-      const res = await fetch(`/api/warehouses?id=${whId}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (res.ok) {
-        toast({ title: 'Ombor o\'chirildi' })
-        fetchData()
-      } else {
-        toast({ title: data.error || 'Xatolik', variant: 'destructive' })
-      }
-    } catch {
-      toast({ title: 'Xatolik', variant: 'destructive' })
-    }
+  const handleDeleteWarehouse = (whId: string) => {
+    useDataStore.getState().deleteWarehouse(whId)
+    toast({ title: 'Ombor o\'chirildi' })
   }
 
   const totalRevenue = orders.filter((o) => o.status !== 'cancelled').reduce((s, o) => s + o.totalAmount, 0)
 
   // ========== LOGIN ==========
   if (!isLoggedIn) {
-    return <LoginScreen onLogin={() => { setIsLoggedIn(true); fetchData() }} />
+    return <LoginScreen onLogin={() => { setIsLoggedIn(true) }} />
   }
 
   // ========== WAREHOUSE DETAIL ==========
@@ -1769,7 +1642,7 @@ export function AdminPanel() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 py-6">
-          <WarehouseDetail warehouse={selectedWarehouse} onBack={() => { setSelectedWarehouse(null); fetchData() }} warehouses={warehouses} />
+          <WarehouseDetail warehouse={selectedWarehouse} onBack={() => { setSelectedWarehouse(null) }} warehouses={warehouses} />
         </div>
       </div>
     )

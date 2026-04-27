@@ -64,8 +64,8 @@ export function CheckoutView() {
         const pickupTime = new Date(Date.now() + 30 * 60000)
         useCartStore.getState().setOrderSuccessData({
           orderNumber: order.orderNumber,
-          warehouseName: 'Markaziy ombor',
-          warehouseAddress: 'Chilonzor ko\'chasi, 15-uy',
+          warehouseName: order.warehouse?.name || 'Buyurtma qabul qilindi',
+          warehouseAddress: order.warehouse?.address || 'Ombor tanlanmadi',
           pickupTime: pickupTime.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
         })
         clearCart()

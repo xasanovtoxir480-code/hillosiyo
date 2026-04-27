@@ -29,16 +29,17 @@ export async function POST(request: Request) {
     const ext = file.name.split('.').pop() || 'jpg'
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`
 
-    // Ensure upload directory exists
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products')
+    // Save to data/uploads/products/ (writable directory, not public/)
+    const uploadDir = path.join(process.cwd(), 'data', 'uploads', 'products')
     await mkdir(uploadDir, { recursive: true })
 
     // Write file
     const filePath = path.join(uploadDir, uniqueName)
     await writeFile(filePath, buffer)
 
+    // Return URL pointing to our file serving API
     return NextResponse.json({
-      url: `/uploads/products/${uniqueName}`,
+      url: `/api/files/products/${uniqueName}`,
       name: uniqueName,
     })
   } catch (error) {

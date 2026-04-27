@@ -171,7 +171,7 @@ export function CheckoutView() {
                 <div key={item.productId} className="flex items-center justify-between py-2">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg overflow-hidden">
-                      {item.productImage && item.productImage.startsWith('/products/') ? (
+                      {item.productImage && (item.productImage.startsWith('/products/') || item.productImage.startsWith('/uploads/') || item.productImage.startsWith('/api/files/')) ? (
                         <img src={item.productImage} alt="" className="w-full h-full object-cover" />
                       ) : (
                         item.categoryIcon

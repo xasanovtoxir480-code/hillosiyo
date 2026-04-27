@@ -134,7 +134,7 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
                 >
                   {/* Image */}
                   <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-                    {product.image && (product.image.startsWith('/products/') || product.image.startsWith('/uploads/')) && (
+                    {product.image && (product.image.startsWith('/products/') || product.image.startsWith('/uploads/') || product.image.startsWith('/api/files/')) && (
                       <img
                         src={product.image}
                         alt={product.nameUz}
@@ -142,7 +142,7 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
                         loading="lazy"
                       />
                     )}
-                    {!product.image.startsWith('/products/') && !product.image.startsWith('/uploads/') && (
+                    {!product.image.startsWith('/products/') && !product.image.startsWith('/uploads/') && !product.image.startsWith('/api/files/') && (
                       <div className="w-full h-full flex items-center justify-center text-6xl">
                         {product.category.icon}
                       </div>

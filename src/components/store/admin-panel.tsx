@@ -26,6 +26,8 @@ import {
   AlertCircle,
   Search,
   Pencil,
+  ImagePlus,
+  ImageIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -128,6 +130,96 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   ready: { label: 'Tayyor', color: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: <CheckCircle2 className="h-3 w-3" /> },
   cancelled: { label: 'Bekor qilindi', color: 'bg-red-100 text-red-700 border-red-200', icon: <XCircle className="h-3 w-3" /> },
   completed: { label: 'Topshirildi', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: <CheckCircle2 className="h-3 w-3" /> },
+}
+
+// ========== IMAGE UPLOAD COMPONENT ==========
+function ImageUploader({
+  value,
+  onChange,
+  label = 'Rasm',
+}: {
+  value: string
+  onChange: (url: string) => void
+  label?: string
+}) {
+  const [uploading, setUploading] = useState(false)
+  const [preview, setPreview] = useState(value)
+  const { toast } = useToast()
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Fayl hajmi 5MB dan oshmasligi kerak', variant: 'destructive' })
+      return
+    }
+
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await res.json()
+      if (res.ok && data.url) {
+        onChange(data.url)
+        setPreview(data.url)
+        toast({ title: 'Rasm yuklandi!', duration: 1500 })
+      } else {
+        toast({ title: data.error || 'Xatolik yuz berdi', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Rasm yuklashda xatolik', variant: 'destructive' })
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <div className="flex items-center gap-3">
+        {/* Preview */}
+        <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
+          {preview ? (
+            <img
+              src={preview}
+              alt="Preview"
+              className="w-full h-full object-cover"
+              onError={() => setPreview('')}
+            />
+          ) : (
+            <ImageIcon className="h-6 w-6 text-gray-300" />
+          )}
+        </div>
+        {/* Upload button */}
+        <label className="flex-1">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleUpload}
+            disabled={uploading}
+          />
+          <div className={
+            'flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-dashed cursor-pointer transition-colors ' +
+            (uploading
+              ? 'border-gray-200 bg-gray-50 text-gray-400'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300')
+          }>
+            {uploading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Yuklanmoqda...</>
+            ) : (
+              <><ImagePlus className="h-4 w-4" /> Rasm tanlash</>
+            )}
+          </div>
+        </label>
+      </div>
+    </div>
+  )
 }
 
 type AdminTab = 'orders' | 'warehouses' | 'products' | 'create-order' | 'transfer'
@@ -554,12 +646,14 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   const [newProdCategoryId, setNewProdCategoryId] = useState('')
   const [newProdPrice, setNewProdPrice] = useState('')
   const [newProdUnit, setNewProdUnit] = useState('kg')
+  const [newProdImage, setNewProdImage] = useState('/products/default.jpg')
 
   // Price edit dialog state
   const [editPriceOpen, setEditPriceOpen] = useState(false)
   const [editPriceProduct, setEditPriceProduct] = useState<Product | null>(null)
   const [editPriceValue, setEditPriceValue] = useState('')
   const [editPriceName, setEditPriceName] = useState('')
+  const [editPriceImage, setEditPriceImage] = useState('')
 
   const refreshProducts = useCallback(() => {
     fetch('/api/products').then((r) => r.json()).then((d) => setProducts(d.products || []))
@@ -631,7 +725,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
           categoryId: newProdCategoryId,
           price: newProdPrice,
           unit: newProdUnit,
-          image: '/products/default.jpg',
+          image: newProdImage,
           stock: 100,
         }),
       })
@@ -643,6 +737,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
         setNewProdCategoryId('')
         setNewProdPrice('')
         setNewProdUnit('kg')
+        setNewProdImage('/products/default.jpg')
         refreshProducts()
       } else {
         toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
@@ -658,6 +753,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
     setEditPriceProduct(product)
     setEditPriceName(product.nameUz)
     setEditPriceValue(String(product.price))
+    setEditPriceImage(product.image || '')
     setEditPriceOpen(true)
   }
 
@@ -675,6 +771,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
           productId: editPriceProduct.id,
           nameUz: editPriceName,
           price: parseFloat(editPriceValue),
+          image: editPriceImage || undefined,
         }),
       })
       if (res.ok) {
@@ -801,6 +898,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
                     <DialogDescription>Yangi kelgan mahsulotni qo&apos;shing va narxini belgilang</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
+                    <ImageUploader value={newProdImage} onChange={setNewProdImage} label='Mahsulot rasmi' />
                     <div className="space-y-2">
                       <Label>Mahsulot nomi (o&apos;zbekcha)</Label>
                       <Input placeholder="Masalan: Pomidor" value={newProdNameUz} onChange={(e) => setNewProdNameUz(e.target.value)} className="h-11 rounded-xl" />
@@ -974,6 +1072,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-4">
+            <ImageUploader value={editPriceImage} onChange={setEditPriceImage} label='Mahsulot rasmi' />
             <div className="space-y-2">
               <Label>Mahsulot nomi</Label>
               <Input value={editPriceName} onChange={(e) => setEditPriceName(e.target.value)} className="h-11 rounded-xl" />
@@ -1066,12 +1165,14 @@ function ProductsView() {
   const [newCategoryId, setNewCategoryId] = useState('')
   const [newPrice, setNewPrice] = useState('')
   const [newUnit, setNewUnit] = useState('kg')
+  const [newImage, setNewImage] = useState('/products/default.jpg')
 
   // Edit price dialog
   const [editOpen, setEditOpen] = useState(false)
   const [editProduct, setEditProduct] = useState<Product | null>(null)
   const [editPrice, setEditPrice] = useState('')
   const [editNameUz, setEditNameUz] = useState('')
+  const [editImage, setEditImage] = useState('')
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -1110,7 +1211,7 @@ function ProductsView() {
           categoryId: newCategoryId,
           price: newPrice,
           unit: newUnit,
-          image: '/products/default.jpg',
+          image: newImage,
           stock: 100,
         }),
       })
@@ -1122,6 +1223,7 @@ function ProductsView() {
         setNewCategoryId('')
         setNewPrice('')
         setNewUnit('kg')
+        setNewImage('/products/default.jpg')
         fetchData()
       }
     } catch {
@@ -1133,6 +1235,7 @@ function ProductsView() {
     setEditProduct(product)
     setEditNameUz(product.nameUz)
     setEditPrice(String(product.price))
+    setEditImage(product.image || '')
     setEditOpen(true)
   }
 
@@ -1149,6 +1252,7 @@ function ProductsView() {
           productId: editProduct.id,
           nameUz: editNameUz,
           price: parseFloat(editPrice),
+          image: editImage || undefined,
         }),
       })
       if (res.ok) {
@@ -1210,6 +1314,7 @@ function ProductsView() {
               <DialogDescription>Yangi kelgan mahsulotni qo&apos;shing va narxini belgilang</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              <ImageUploader value={newImage} onChange={setNewImage} label='Mahsulot rasmi' />
               <div className="space-y-2">
                 <Label>Mahsulot nomi (o&apos;zbekcha)</Label>
                 <Input placeholder="Masalan: Pomidor" value={newNameUz} onChange={(e) => setNewNameUz(e.target.value)} className="h-11 rounded-xl" />
@@ -1360,6 +1465,7 @@ function ProductsView() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5 py-4">
+            <ImageUploader value={editImage} onChange={setEditImage} label='Mahsulot rasmi' />
             <div className="space-y-2">
               <Label>Mahsulot nomi</Label>
               <Input value={editNameUz} onChange={(e) => setEditNameUz(e.target.value)} className="h-11 rounded-xl" />

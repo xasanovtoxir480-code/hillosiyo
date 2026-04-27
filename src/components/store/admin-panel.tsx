@@ -494,7 +494,7 @@ function WarehouseDetail({
 
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await fetch('/api/products')
+      const res = await fetch('/api/products?admin=true')
       const data = await res.json()
       setProducts(data.products || [])
     } catch (err) {
@@ -784,7 +784,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   const [editPriceImage, setEditPriceImage] = useState('')
 
   const refreshProducts = useCallback(() => {
-    fetch('/api/products').then((r) => r.json()).then((d) => setProducts(d.products || []))
+    fetch('/api/products?admin=true').then((r) => r.json()).then((d) => setProducts(d.products || []))
   }, [])
 
   useEffect(() => {
@@ -1306,7 +1306,7 @@ function ProductsView() {
     setLoading(true)
     try {
       const [productsRes, categoriesRes] = await Promise.all([
-        fetch('/api/products'),
+        fetch('/api/products?admin=true'),
         fetch('/api/products/categories'),
       ])
       const productsData = await productsRes.json()
@@ -1552,7 +1552,11 @@ function ProductsView() {
                         </div>
                         <div>
                           <p className="font-semibold text-sm">{product.nameUz}</p>
-                          <p className="text-xs text-gray-400">Sklad: {product.stock} {product.unit}</p>
+                          {product.stock > 0 ? (
+                            <p className="text-xs text-emerald-600">Omborda: {product.stock} {product.unit}</p>
+                          ) : (
+                            <p className="text-xs text-amber-500">Omborda yo'q</p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

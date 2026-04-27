@@ -8,13 +8,18 @@ export async function GET(request: Request) {
     const featured = searchParams.get('featured')
     const search = searchParams.get('search')
     const warehouseId = searchParams.get('warehouseId')
+    const admin = searchParams.get('admin') === 'true'
 
-    // Build WHERE clause — only products with warehouse stock > 0
+    // Build WHERE clause
+    // admin=true: show ALL products (for admin panel catalog management)
+    // default (no admin): only products with warehouse stock > 0 (for customers)
     const conditions: string[] = []
     const params: any[] = []
 
     conditions.push('p.isActive = 1')
-    conditions.push('COALESCE(ws_total.totalStock, 0) > 0')
+    if (!admin) {
+      conditions.push('COALESCE(ws_total.totalStock, 0) > 0')
+    }
 
     if (categoryId && categoryId !== 'all') {
       conditions.push('p.categoryId = ?')

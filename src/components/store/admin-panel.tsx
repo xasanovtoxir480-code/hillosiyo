@@ -717,26 +717,16 @@ function WarehouseDetail({
                   .map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border relative">
-                          {(item.product.image.startsWith('/products/') || item.product.image.startsWith('/uploads/') || item.product.image.startsWith('/api/files/')) ? (
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border">
+                          {item.product.image ? (
                             <img
                               src={item.product.image}
                               alt=""
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.style.display = 'none'
-                                const fallback = target.nextElementSibling as HTMLElement
-                                if (fallback) fallback.style.display = 'flex'
-                              }}
                             />
-                          ) : null}
-                          <div
-                            className="w-full h-full items-center justify-center text-lg absolute inset-0"
-                            style={{ display: (!(item.product.image.startsWith('/products/') || item.product.image.startsWith('/uploads/') || item.product.image.startsWith('/api/files/'))) ? 'flex' : 'none' }}
-                          >
-                            {item.product.category.icon}
-                          </div>
+                          ) : (
+                            <span>{item.product.category.icon}</span>
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold text-sm">{item.product.category.icon} {item.product.nameUz}</p>
@@ -1549,26 +1539,16 @@ function ProductsView() {
                   {group.items.map((product) => (
                     <div key={product.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border shrink-0 relative">
-                          {(product.image.startsWith('/products/') || product.image.startsWith('/uploads/') || product.image.startsWith('/api/files/')) ? (
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border shrink-0">
+                          {product.image ? (
                             <img
                               src={product.image}
                               alt=""
                               className="w-full h-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement
-                                target.style.display = 'none'
-                                const fallback = target.nextElementSibling as HTMLElement
-                                if (fallback) fallback.style.display = 'flex'
-                              }}
                             />
-                          ) : null}
-                          <div
-                            className="w-full h-full items-center justify-center text-lg absolute inset-0"
-                            style={{ display: (!(product.image.startsWith('/products/') || product.image.startsWith('/uploads/') || product.image.startsWith('/api/files/'))) ? 'flex' : 'none' }}
-                          >
-                            {group.category.icon}
-                          </div>
+                          ) : (
+                            <span>{group.category.icon}</span>
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold text-sm">{product.nameUz}</p>

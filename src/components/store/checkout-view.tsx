@@ -173,26 +173,16 @@ export function CheckoutView() {
                 {items.map((item) => (
                   <div key={item.productId} className="flex items-center justify-between py-2">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg overflow-hidden relative">
-                        {item.productImage && (item.productImage.startsWith('/products/') || item.productImage.startsWith('/uploads/') || item.productImage.startsWith('/api/files/')) ? (
+                      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-lg overflow-hidden">
+                        {item.productImage ? (
                           <img
                             src={item.productImage}
                             alt=""
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement
-                              target.style.display = 'none'
-                              const fallback = target.nextElementSibling as HTMLElement
-                              if (fallback) fallback.style.display = 'flex'
-                            }}
                           />
-                        ) : null}
-                        <div
-                          className="w-full h-full items-center justify-center text-lg absolute inset-0"
-                          style={{ display: (!item.productImage || !(item.productImage.startsWith('/products/') || item.productImage.startsWith('/uploads/') || item.productImage.startsWith('/api/files/'))) ? 'flex' : 'none' }}
-                        >
-                          {item.categoryIcon}
-                        </div>
+                        ) : (
+                          <span>{item.categoryIcon}</span>
+                        )}
                       </div>
                       <div>
                         <p className="font-medium text-sm">{item.productName}</p>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, MapPin, Phone, User, Package, CreditCard, Warehouse } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -88,8 +88,13 @@ export function CheckoutView() {
     }
   }
 
+  useEffect(() => {
+    if (items.length === 0) {
+      setCurrentView('shop')
+    }
+  }, [items.length, setCurrentView])
+
   if (items.length === 0) {
-    setCurrentView('shop')
     return null
   }
 

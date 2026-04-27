@@ -1,0 +1,11 @@
+Task ID: 1
+Agent: main
+Task: Fix client-side crash (Application error)
+
+Fixes applied:
+1. checkout-view.tsx: moved setCurrentView("shop") from render to useEffect
+2. order-success-view.tsx: moved setCurrentView("shop") from render to useEffect
+3. page.tsx: added hydration guard (mounted state) to prevent SSR/client mismatch
+4. data-store.ts: added onRehydrateStorage callback
+
+JS storage migration was already complete - data-store.ts handles all products, warehouses, stock, orders via Zustand + localStorage.

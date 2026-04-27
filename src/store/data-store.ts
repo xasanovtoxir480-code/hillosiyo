@@ -437,6 +437,12 @@ export const useDataStore = create<DataStore>()(
         warehouseStock: state.warehouseStock,
         orders: state.orders,
       }),
+      onRehydrateStorage: () => (state) => {
+        // Set hydrated flag after rehydration completes
+        if (state) {
+          useDataStore.setState({ _hasHydrated: true } as any)
+        }
+      },
     }
   )
 )

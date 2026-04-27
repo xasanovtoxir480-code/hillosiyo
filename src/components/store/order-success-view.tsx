@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { CheckCircle2, MapPin, Clock, ArrowLeft, Share2, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useCartStore } from '@/store/cart-store'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useToast } from '@/hooks/use-toast'
 
 export function OrderSuccessView() {
@@ -12,8 +12,13 @@ export function OrderSuccessView() {
   const { toast } = useToast()
   const [copied, setCopied] = useState(false)
 
+  useEffect(() => {
+    if (!orderSuccessData) {
+      setCurrentView('shop')
+    }
+  }, [orderSuccessData, setCurrentView])
+
   if (!orderSuccessData) {
-    setCurrentView('shop')
     return null
   }
 

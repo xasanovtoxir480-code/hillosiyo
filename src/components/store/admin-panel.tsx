@@ -146,6 +146,11 @@ function ImageUploader({
   const [preview, setPreview] = useState(value)
   const { toast } = useToast()
 
+  // Sync preview with value prop changes
+  useEffect(() => {
+    setPreview(value)
+  }, [value])
+
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -594,7 +599,7 @@ function WarehouseDetail({
                     <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border">
-                          {item.product.image.startsWith('/products/') ? (
+                          {(item.product.image.startsWith('/products/') || item.product.image.startsWith('/uploads/')) ? (
                             <img src={item.product.image} alt="" className="w-full h-full object-cover" />
                           ) : (
                             item.product.category.icon
@@ -1412,7 +1417,7 @@ function ProductsView() {
                     <div key={product.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border shrink-0">
-                          {product.image.startsWith('/products/') ? (
+                          {(product.image.startsWith('/products/') || product.image.startsWith('/uploads/')) ? (
                             <img src={product.image} alt="" className="w-full h-full object-cover" />
                           ) : (
                             group.category.icon

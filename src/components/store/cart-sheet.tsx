@@ -109,7 +109,7 @@ export function CartSheet() {
                         >
                           {/* Image */}
                           <div className="w-16 h-16 rounded-lg bg-white overflow-hidden flex-shrink-0 border">
-                            {item.productImage && item.productImage.startsWith('/products/') ? (
+                            {item.productImage && (item.productImage.startsWith('/products/') || item.productImage.startsWith('/uploads/')) ? (
                               <img
                                 src={item.productImage}
                                 alt={item.productName}

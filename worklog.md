@@ -69,3 +69,23 @@ Stage Summary:
 - Narx o'zgarganda eski narx chizilgan ko'rsatiladi
 - Mahsulotni o'chirish mumkin (confirm dialog bilan)
 - Kategoriya bo'yicha filter va qidirish ishlaydi
+
+---
+Task ID: 5
+Agent: Main Agent
+Task: Mahsulotlarga rasm qo'shish funksiyasini to'liq ishga tushirish
+
+Work Log:
+- ImageUploader componentga useEffect qo'shildi - value prop o'zgarganda preview avtomatik yangilanadi
+- product-grid.tsx: rasm ko'rsatish shartiga /uploads/ yo'li qo'shildi
+- cart-sheet.tsx: rasm ko'rsatish shartiga /uploads/ yo'li qo'shildi
+- admin-panel.tsx (WarehouseDetail): rasm ko'rsatish shartiga /uploads/ yo'li qo'shildi
+- admin-panel.tsx (ProductsView): rasm ko'rsatish shartiga /uploads/ yo'li qo'shildi
+- Build muvaffaqiyatli o'tdi
+
+Stage Summary:
+- Rasm yuklash funksiyasi to'liq ishlaydi (endi yuklangan rasmlar ham ko'rinadi)
+- Admin panel Mahsulotlar tabida yangi mahsulot qo'shishda rasm yuklash mumkin
+- Narxni tahrirlash dialogida ham rasmni o'zgartirish mumkin
+- Do'konda va savatda yuklangan rasmlar to'g'ri ko'rinadi
+- Rasm /uploads/products/ papkasiga saqlanadi, 5MB gacha, JPG/PNG/WebP/GIF formatlar

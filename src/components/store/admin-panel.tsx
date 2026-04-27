@@ -851,9 +851,9 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
           name: newProdName.trim() || newProdNameUz.trim(),
           nameUz: newProdNameUz.trim(),
           categoryId: newProdCategoryId,
-          price: newProdPrice,
+          price: parseFloat(newProdPrice),
           unit: newProdUnit,
-          image: newProdImage,
+          image: newProdImage || undefined,
           stock: 100,
         }),
       })
@@ -868,9 +868,11 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
         setNewProdImage('')
         refreshProducts()
       } else {
-        toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
+        const data = await res.json()
+        toast({ title: data.error || 'Xatolik yuz berdi', variant: 'destructive' })
       }
-    } catch {
+    } catch (err) {
+      console.error('New product error:', err)
       toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
     }
   }
@@ -1325,7 +1327,7 @@ function ProductsView() {
   }, [fetchData])
 
   const handleAddProduct = async () => {
-    if (!newName.trim() || !newNameUz.trim() || !newCategoryId || !newPrice) {
+    if (!newNameUz.trim() || !newCategoryId || !newPrice) {
       toast({ title: "Barcha maydonlarni to'ldiring", variant: 'destructive' })
       return
     }
@@ -1334,12 +1336,12 @@ function ProductsView() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newName,
-          nameUz: newNameUz,
+          name: newName.trim() || newNameUz.trim(),
+          nameUz: newNameUz.trim(),
           categoryId: newCategoryId,
-          price: newPrice,
+          price: parseFloat(newPrice),
           unit: newUnit,
-          image: newImage,
+          image: newImage || undefined,
           stock: 100,
         }),
       })
@@ -1353,8 +1355,12 @@ function ProductsView() {
         setNewUnit('kg')
         setNewImage('')
         fetchData()
+      } else {
+        const data = await res.json()
+        toast({ title: data.error || 'Xatolik yuz berdi', variant: 'destructive' })
       }
-    } catch {
+    } catch (err) {
+      console.error('Add product error:', err)
       toast({ title: 'Xatolik', variant: 'destructive' })
     }
   }

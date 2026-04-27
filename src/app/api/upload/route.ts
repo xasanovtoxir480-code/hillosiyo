@@ -29,17 +29,17 @@ export async function POST(request: Request) {
     const ext = file.name.split('.').pop() || 'jpg'
     const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`
 
-    // Save to data/uploads/products/ (writable directory, not public/)
-    const uploadDir = path.join(process.cwd(), 'data', 'uploads', 'products')
+    // Save to public/uploads/products/ — served directly by Next.js
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'products')
     await mkdir(uploadDir, { recursive: true })
 
     // Write file
     const filePath = path.join(uploadDir, uniqueName)
     await writeFile(filePath, buffer)
 
-    // Return URL pointing to our file serving API
+    // Return URL that Next.js static file server will handle
     return NextResponse.json({
-      url: `/api/files/products/${uniqueName}`,
+      url: `/uploads/products/${uniqueName}`,
       name: uniqueName,
     })
   } catch (error) {

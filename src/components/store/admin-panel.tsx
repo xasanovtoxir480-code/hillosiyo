@@ -152,7 +152,7 @@ function ImageUploader({
   // Sync preview with value prop changes
   useEffect(() => {
     setPreview(value)
-    if (value && value !== '/products/default.jpg') {
+    if (value) {
       setUploadStatus('success')
     }
   }, [value])
@@ -212,7 +212,7 @@ function ImageUploader({
 
   const handleRemove = () => {
     setPreview('')
-    onChange('/products/default.jpg')
+    onChange('')
     setUploadStatus('idle')
     setFileName('')
   }
@@ -239,14 +239,14 @@ function ImageUploader({
         onDrop={handleDrop}
       >
         {/* Success indicator bar */}
-        {uploadStatus === 'success' && preview && preview !== '/products/default.jpg' && (
+        {uploadStatus === 'success' && preview && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500 z-10" />
         )}
         {uploadStatus === 'error' && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-red-500 z-10" />
         )}
 
-        {preview && preview !== '/products/default.jpg' ? (
+        {preview ? (
           /* ===== IMAGE LOADED STATE ===== */
           <div className="relative">
             <div className="flex items-center gap-4 p-3">
@@ -333,7 +333,7 @@ function ImageUploader({
         )}
 
         {/* Uploading overlay shimmer */}
-        {uploading && preview && preview !== '/products/default.jpg' && (
+        {uploading && preview && (
           <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10">
             <div className="flex items-center gap-2 bg-white rounded-lg px-4 py-2 shadow-lg border">
               <Loader2 className="h-4 w-4 text-emerald-600 animate-spin" />
@@ -717,12 +717,26 @@ function WarehouseDetail({
                   .map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border">
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border relative">
                           {(item.product.image.startsWith('/products/') || item.product.image.startsWith('/uploads/') || item.product.image.startsWith('/api/files/')) ? (
-                            <img src={item.product.image} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            item.product.category.icon
-                          )}
+                            <img
+                              src={item.product.image}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                                const fallback = target.nextElementSibling as HTMLElement
+                                if (fallback) fallback.style.display = 'flex'
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="w-full h-full items-center justify-center text-lg absolute inset-0"
+                            style={{ display: (!(item.product.image.startsWith('/products/') || item.product.image.startsWith('/uploads/') || item.product.image.startsWith('/api/files/'))) ? 'flex' : 'none' }}
+                          >
+                            {item.product.category.icon}
+                          </div>
                         </div>
                         <div>
                           <p className="font-semibold text-sm">{item.product.category.icon} {item.product.nameUz}</p>
@@ -770,7 +784,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   const [newProdCategoryId, setNewProdCategoryId] = useState('')
   const [newProdPrice, setNewProdPrice] = useState('')
   const [newProdUnit, setNewProdUnit] = useState('kg')
-  const [newProdImage, setNewProdImage] = useState('/products/default.jpg')
+  const [newProdImage, setNewProdImage] = useState('')
 
   // Price edit dialog state
   const [editPriceOpen, setEditPriceOpen] = useState(false)
@@ -861,7 +875,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
         setNewProdCategoryId('')
         setNewProdPrice('')
         setNewProdUnit('kg')
-        setNewProdImage('/products/default.jpg')
+        setNewProdImage('')
         refreshProducts()
       } else {
         toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
@@ -1289,7 +1303,7 @@ function ProductsView() {
   const [newCategoryId, setNewCategoryId] = useState('')
   const [newPrice, setNewPrice] = useState('')
   const [newUnit, setNewUnit] = useState('kg')
-  const [newImage, setNewImage] = useState('/products/default.jpg')
+  const [newImage, setNewImage] = useState('')
 
   // Edit price dialog
   const [editOpen, setEditOpen] = useState(false)
@@ -1347,7 +1361,7 @@ function ProductsView() {
         setNewCategoryId('')
         setNewPrice('')
         setNewUnit('kg')
-        setNewImage('/products/default.jpg')
+        setNewImage('')
         fetchData()
       }
     } catch {
@@ -1535,12 +1549,26 @@ function ProductsView() {
                   {group.items.map((product) => (
                     <div key={product.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border shrink-0">
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border shrink-0 relative">
                           {(product.image.startsWith('/products/') || product.image.startsWith('/uploads/') || product.image.startsWith('/api/files/')) ? (
-                            <img src={product.image} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            group.category.icon
-                          )}
+                            <img
+                              src={product.image}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                                const fallback = target.nextElementSibling as HTMLElement
+                                if (fallback) fallback.style.display = 'flex'
+                              }}
+                            />
+                          ) : null}
+                          <div
+                            className="w-full h-full items-center justify-center text-lg absolute inset-0"
+                            style={{ display: (!(product.image.startsWith('/products/') || product.image.startsWith('/uploads/') || product.image.startsWith('/api/files/'))) ? 'flex' : 'none' }}
+                          >
+                            {group.category.icon}
+                          </div>
                         </div>
                         <div>
                           <p className="font-semibold text-sm">{product.nameUz}</p>

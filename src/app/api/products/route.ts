@@ -53,7 +53,7 @@ export async function POST(request: Request) {
         price: parseFloat(price),
         oldPrice: oldPrice ? parseFloat(oldPrice) : null,
         unit: unit || 'kg',
-        image: image || '/products/default.jpg',
+        image: image || '',
         stock: parseInt(stock) || 100,
         isFeatured: isFeatured || false,
       },

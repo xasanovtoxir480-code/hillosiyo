@@ -134,19 +134,26 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
                 >
                   {/* Image */}
                   <div className="relative aspect-square bg-gradient-to-br from-gray-50 to-gray-100 overflow-hidden">
-                    {product.image && (product.image.startsWith('/products/') || product.image.startsWith('/uploads/') || product.image.startsWith('/api/files/')) && (
+                    {product.image && (product.image.startsWith('/products/') || product.image.startsWith('/uploads/') || product.image.startsWith('/api/files/')) ? (
                       <img
                         src={product.image}
                         alt={product.nameUz}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                          const fallback = target.nextElementSibling as HTMLElement
+                          if (fallback) fallback.style.display = 'flex'
+                        }}
                       />
-                    )}
-                    {!product.image.startsWith('/products/') && !product.image.startsWith('/uploads/') && !product.image.startsWith('/api/files/') && (
-                      <div className="w-full h-full flex items-center justify-center text-6xl">
-                        {product.category.icon}
-                      </div>
-                    )}
+                    ) : null}
+                    <div
+                      className="w-full h-full items-center justify-center text-6xl absolute inset-0"
+                      style={{ display: (!product.image || !(product.image.startsWith('/products/') || product.image.startsWith('/uploads/') || product.image.startsWith('/api/files/'))) ? 'flex' : 'none' }}
+                    >
+                      {product.category.icon}
+                    </div>
 
                     {/* Badges */}
                     <div className="absolute top-2 left-2 flex flex-col gap-1">

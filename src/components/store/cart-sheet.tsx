@@ -108,18 +108,26 @@ export function CartSheet() {
                           className="flex gap-4 p-3 bg-gray-50 rounded-xl"
                         >
                           {/* Image */}
-                          <div className="w-16 h-16 rounded-lg bg-white overflow-hidden flex-shrink-0 border">
+                          <div className="w-16 h-16 rounded-lg bg-white overflow-hidden flex-shrink-0 border relative">
                             {item.productImage && (item.productImage.startsWith('/products/') || item.productImage.startsWith('/uploads/') || item.productImage.startsWith('/api/files/')) ? (
                               <img
                                 src={item.productImage}
                                 alt={item.productName}
                                 className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement
+                                  target.style.display = 'none'
+                                  const fallback = target.nextElementSibling as HTMLElement
+                                  if (fallback) fallback.style.display = 'flex'
+                                }}
                               />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-2xl">
-                                {item.categoryIcon}
-                              </div>
-                            )}
+                            ) : null}
+                            <div
+                              className="w-full h-full items-center justify-center text-2xl absolute inset-0 bg-gray-50"
+                              style={{ display: (!item.productImage || !(item.productImage.startsWith('/products/') || item.productImage.startsWith('/uploads/') || item.productImage.startsWith('/api/files/'))) ? 'flex' : 'none' }}
+                            >
+                              {item.categoryIcon}
+                            </div>
                           </div>
 
                           {/* Info */}

@@ -26,3 +26,23 @@ Stage Summary:
 - Mahsulot o'tkazish ishlaydi
 - Buyurtma yaratish ishlaydi
 - Barcha API endpointlari testdan o'tdi
+
+---
+Task ID: 3
+Agent: Main Agent
+Task: Mahsulot qoshayotganda kg va narx so'rash dialogi
+
+Work Log:
+- CreateOrderView componentida mahsulot qoshish logikasi o'zgartirildi
+- Mahsulotni bosganda to'g'riqo'shmasdan, dialog ochildi
+- Dialogda 2 ta input: "Necha kilogram?" va "1 kg narxi"
+- 1 kg narxi fieldiga mahsulotning joriy narxi default sifatida to'ldiriladi
+- Dialog ostida jami narx avtomatik hisoblanib ko'rsatiladi (kg x narx/kg)
+- Tasdiqlangandan keyin buyurtmaga qo'shiladi
+- Build muvaffaqiyatli o'tdi
+
+Stage Summary:
+- Mahsulot qo'shish dialogi ishlaydi
+- "Necha kg?" va "1 kg narxi" maydonlari bor
+- Jami narx real-time hisoblanadi (yashil katakda ko'rsatiladi)
+- 1 kg narxi mahsulot narxi bilan avto-to'ldiriladi

@@ -523,31 +523,63 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   const [customerPhone, setCustomerPhone] = useState('')
   const [selectedWarehouse, setSelectedWarehouse] = useState('')
   const [orderItems, setOrderItems] = useState<{ productId: string; productName: string; productImage: string; price: number; quantity: number; unit: string }[]>([])
-  const [addProductOpen, setAddProductOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const { toast } = useToast()
+
+  // Product add dialog state
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [inputKg, setInputKg] = useState('')
+  const [inputPricePerKg, setInputPricePerKg] = useState('')
 
   useEffect(() => {
     fetch('/api/products').then((r) => r.json()).then((d) => setProducts(d.products || []))
     fetch('/api/warehouses').then((r) => r.json()).then((d) => setWarehouses(d.warehouses || []))
   }, [])
 
-  const addProductToOrder = (product: Product) => {
-    const existing = orderItems.find((i) => i.productId === product.id)
+  // Open dialog when clicking a product
+  const openAddDialog = (product: Product) => {
+    setSelectedProduct(product)
+    setInputKg('')
+    setInputPricePerKg(String(product.price))
+    setAddDialogOpen(true)
+  }
+
+  // Confirm add product to order
+  const confirmAddProduct = () => {
+    if (!selectedProduct) return
+    const kg = parseFloat(inputKg)
+    const pricePerKg = parseFloat(inputPricePerKg)
+    if (!kg || kg <= 0) {
+      toast({ title: 'Necha kilogramligini kiriting', variant: 'destructive' })
+      return
+    }
+    if (!pricePerKg || pricePerKg <= 0) {
+      toast({ title: '1 kg narxini kiriting', variant: 'destructive' })
+      return
+    }
+
+    const existing = orderItems.find((i) => i.productId === selectedProduct.id)
     if (existing) {
-      setOrderItems(orderItems.map((i) => i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i))
+      setOrderItems(orderItems.map((i) =>
+        i.productId === selectedProduct.id
+          ? { ...i, quantity: i.quantity + kg, price: pricePerKg }
+          : i
+      ))
     } else {
       setOrderItems([...orderItems, {
-        productId: product.id,
-        productName: product.nameUz,
-        productImage: product.image,
-        price: product.price,
-        quantity: 1,
-        unit: product.unit,
+        productId: selectedProduct.id,
+        productName: selectedProduct.nameUz,
+        productImage: selectedProduct.image,
+        price: pricePerKg,
+        quantity: kg,
+        unit: selectedProduct.unit,
       }])
     }
-    toast({ title: `${product.nameUz} qo'shildi`, duration: 1500 })
+    toast({ title: `${selectedProduct.nameUz} ${kg} kg qo'shildi`, duration: 1500 })
+    setAddDialogOpen(false)
+    setSelectedProduct(null)
   }
 
   const removeItem = (productId: string) => {
@@ -560,6 +592,11 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   }
 
   const total = orderItems.reduce((s, i) => s + i.price * i.quantity, 0)
+
+  // Dialog preview total
+  const dialogTotal = selectedProduct && inputKg && inputPricePerKg
+    ? parseFloat(inputKg) * parseFloat(inputPricePerKg)
+    : 0
 
   const handleSubmit = async () => {
     if (!customerName.trim() || !customerPhone.trim()) {
@@ -656,7 +693,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
                 <button
                   key={p.id}
                   className="w-full flex items-center justify-between p-2.5 rounded-lg hover:bg-emerald-50 transition-colors text-left"
-                  onClick={() => addProductToOrder(p)}
+                  onClick={() => openAddDialog(p)}
                 >
                   <div className="flex items-center gap-2">
                     <span>{p.category.icon}</span>
@@ -672,6 +709,81 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
           </ScrollArea>
         </CardContent>
       </Card>
+
+      {/* Product Add Dialog */}
+      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) setSelectedProduct(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Mahsulot qo&apos;shish</DialogTitle>
+            <DialogDescription>
+              {selectedProduct?.category.icon} {selectedProduct?.nameUz}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-4">
+            {/* Weight input */}
+            <div className="space-y-2">
+              <Label htmlFor="input-kg" className="text-base font-semibold">
+                Necha kilogram?
+              </Label>
+              <div className="relative">
+                <Input
+                  id="input-kg"
+                  type="number"
+                  min="0.1"
+                  step="0.1"
+                  placeholder="Masalan: 2.5"
+                  className="h-12 text-lg rounded-xl pr-12"
+                  value={inputKg}
+                  onChange={(e) => setInputKg(e.target.value)}
+                  autoFocus
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">kg</span>
+              </div>
+            </div>
+
+            {/* Price per kg input */}
+            <div className="space-y-2">
+              <Label htmlFor="input-price" className="text-base font-semibold">
+                1 kg narxi
+              </Label>
+              <div className="relative">
+                <Input
+                  id="input-price"
+                  type="number"
+                  min="0"
+                  step="100"
+                  placeholder="Masalan: 15000"
+                  className="h-12 text-lg rounded-xl pr-16"
+                  value={inputPricePerKg}
+                  onChange={(e) => setInputPricePerKg(e.target.value)}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">so&apos;m/kg</span>
+              </div>
+            </div>
+
+            {/* Calculated total preview */}
+            {dialogTotal > 0 && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-emerald-700 font-medium">Jami narx:</span>
+                  <span className="text-xl font-bold text-emerald-700">{formatPrice(dialogTotal)}</span>
+                </div>
+                <p className="text-xs text-emerald-600 mt-1">
+                  {inputKg} kg x {formatPrice(parseFloat(inputPricePerKg))}/kg
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-xl h-11" onClick={() => setAddDialogOpen(false)}>
+              Bekor qilish
+            </Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-11 px-6" onClick={confirmAddProduct}>
+              <Plus className="h-4 w-4 mr-2" /> Qo&apos;shish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Selected Items */}
       {orderItems.length > 0 && (

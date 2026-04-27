@@ -6,10 +6,10 @@ import { ArrowLeft, MapPin, Phone, User, Package, CreditCard, Warehouse } from '
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useCartStore } from '@/store/cart-store'
+import { useDataStore } from '@/store/data-store'
 import { formatPrice } from '@/lib/format'
 import { useToast } from '@/hooks/use-toast'
 
@@ -39,47 +39,50 @@ export function CheckoutView() {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName: form.customerName,
-          customerPhone: form.customerPhone,
-          items: items.map((item) => ({
-            productId: item.productId,
-            productName: item.productName,
-            productImage: item.productImage,
-            price: item.price,
-            quantity: item.quantity,
-            unit: item.unit,
-          })),
-          totalAmount: total,
-        }),
+      // Find a warehouse that has stock for the first item
+      let warehouseId: string | null = null
+      if (items.length > 0) {
+        const firstItemStocks = useDataStore.getState().warehouseStock.filter(
+          (s) => s.productId === items[0].productId && s.quantity > 0
+        )
+        if (firstItemStocks.length > 0) {
+          warehouseId = firstItemStocks[0].warehouseId
+        }
+      }
+
+      const order = useDataStore.getState().addOrder({
+        customerName: form.customerName,
+        customerPhone: form.customerPhone,
+        items: items.map((item, idx) => ({
+          id: `item-${Date.now()}-${idx}`,
+          productId: item.productId,
+          productName: item.productName,
+          productImage: item.productImage,
+          price: item.price,
+          quantity: item.quantity,
+          unit: item.unit,
+        })),
+        totalAmount: total,
+        warehouseId,
+        pickupTime: null,
       })
 
-      const data = await res.json()
+      const pickupTime = new Date(Date.now() + 30 * 60000)
 
-      if (res.ok) {
-        const order = data.order
-        const pickupTime = new Date(Date.now() + 30 * 60000)
+      // Get warehouse info
+      const whName = warehouseInfo?.name || 'Buyurtma qabul qilindi'
+      const whAddress = warehouseInfo?.address || 'Ombor tanlanmadi'
 
-        // Use warehouse info from the order response, or from the cart store
-        const whName = order.warehouse?.name || warehouseInfo?.name || 'Buyurtma qabul qilindi'
-        const whAddress = order.warehouse?.address || warehouseInfo?.address || 'Ombor tanlanmadi'
-
-        useCartStore.getState().setOrderSuccessData({
-          orderNumber: order.orderNumber,
-          warehouseName: whName,
-          warehouseAddress: whAddress,
-          pickupTime: pickupTime.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
-        })
-        clearCart()
-        setCurrentView('order-success')
-      } else {
-        toast({ title: 'Xatolik yuz berdi', description: 'Qaytadan urinib ko\'ring', variant: 'destructive' })
-      }
+      useCartStore.getState().setOrderSuccessData({
+        orderNumber: order.orderNumber,
+        warehouseName: whName,
+        warehouseAddress: whAddress,
+        pickupTime: pickupTime.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
+      })
+      clearCart()
+      setCurrentView('order-success')
     } catch {
-      toast({ title: 'Internet bilan muammo', variant: 'destructive' })
+      toast({ title: 'Xatolik yuz berdi', description: 'Qaytadan urinib ko\'ring', variant: 'destructive' })
     } finally {
       setLoading(false)
     }

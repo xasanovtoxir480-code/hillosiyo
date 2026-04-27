@@ -1,16 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { motion } from 'framer-motion'
-
-interface Category {
-  id: string
-  name: string
-  nameUz: string
-  icon: string
-  _count?: { products: number }
-}
+import { useDataStore } from '@/store/data-store'
 
 interface CategoriesProps {
   selected: string
@@ -18,14 +10,7 @@ interface CategoriesProps {
 }
 
 export function CategoryBar({ selected, onSelect }: CategoriesProps) {
-  const [categories, setCategories] = useState<Category[]>([])
-
-  useEffect(() => {
-    fetch('/api/products/categories')
-      .then((res) => res.json())
-      .then((data) => setCategories(data.categories || []))
-      .catch(console.error)
-  }, [])
+  const categories = useDataStore((s) => s.categories)
 
   return (
     <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-border shadow-sm">
@@ -61,14 +46,6 @@ export function CategoryBar({ selected, onSelect }: CategoriesProps) {
             >
               <span>{cat.icon}</span>
               <span>{cat.nameUz}</span>
-              {cat._count && (
-                <span className={cn(
-                  'text-xs px-1.5 py-0.5 rounded-full',
-                  selected === cat.id ? 'bg-white/20' : 'bg-gray-200'
-                )}>
-                  {cat._count.products}
-                </span>
-              )}
             </motion.button>
           ))}
         </div>

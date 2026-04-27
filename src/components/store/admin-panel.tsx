@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
@@ -53,24 +53,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useCartStore } from '@/store/cart-store'
-import { useDataStore } from '@/store/data-store'
+import { useDataStore, type Order } from '@/store/data-store'
 import { formatPrice, formatDate } from '@/lib/format'
 import { useToast } from '@/hooks/use-toast'
 
 // ========== TYPES ==========
-interface Order {
-  id: string
-  orderNumber: string
-  customerName: string
-  customerPhone: string
-  status: string
-  totalAmount: number
-  createdAt: string
-  items: OrderItem[]
-  warehouse: { id: string; name: string; address: string } | null
-  pickupTime: string | null
-}
-
 interface OrderItem {
   id: string
   productName: string
@@ -362,26 +349,17 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
     setLoading(true)
     setError('')
 
-    try {
-      const res = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      })
-      const data = await res.json()
+    // Small delay for UX
+    await new Promise((r) => setTimeout(r, 300))
 
-      if (data.success) {
-        localStorage.setItem('admin-token', data.token)
-        toast({ title: 'Xush kelibsiz, Admin!' })
-        onLogin()
-      } else {
-        setError(data.error || "Login xatosi")
-      }
-    } catch {
-      setError('Server bilan aloqada xatolik')
-    } finally {
-      setLoading(false)
+    if (username === 'admin' && password === 'admin123') {
+      localStorage.setItem('admin-token', 'admin-token-pickup-market-2026')
+      toast({ title: 'Xush kelibsiz, Admin!' })
+      onLogin()
+    } else {
+      setError("Login yoki parol noto'g'ri")
     }
+    setLoading(false)
   }
 
   return (
@@ -869,24 +847,24 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
 
     setLoading(true)
     try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerName,
-          customerPhone,
-          items: orderItems,
-          totalAmount: total,
-          warehouseId: selectedWarehouse || undefined,
-        }),
+      const order = useDataStore.getState().addOrder({
+        customerName,
+        customerPhone,
+        items: orderItems.map((item, idx) => ({
+          id: `item-${Date.now()}-${idx}`,
+          productId: item.productId,
+          productName: item.productName,
+          productImage: item.productImage,
+          price: item.price,
+          quantity: item.quantity,
+          unit: item.unit,
+        })),
+        totalAmount: total,
+        warehouseId: selectedWarehouse || null,
+        pickupTime: null,
       })
-      const data = await res.json()
-      if (res.ok) {
-        toast({ title: `Buyurtma ${data.order.orderNumber} yaratildi!` })
-        onCreated()
-      } else {
-        toast({ title: 'Xatolik', variant: 'destructive' })
-      }
+      toast({ title: `Buyurtma ${order.orderNumber} yaratildi!` })
+      onCreated()
     } catch {
       toast({ title: 'Xatolik yuz berdi', variant: 'destructive' })
     } finally {
@@ -1532,23 +1510,28 @@ export function AdminPanel() {
   const { setCurrentView } = useCartStore()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [activeTab, setActiveTab] = useState<AdminTab>('orders')
-  const [orders, setOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(true)
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null)
 
+  // Subscribe to orders from store
+  const orders = useDataStore((s) => s.orders)
+
   // Subscribe to warehouse data from store
   const warehouseStockCounts = useDataStore((s) => {
-    const counts: Record<string, { stock: number }> = {}
+    const counts: Record<string, { stock: number; orders: number }> = {}
     s.warehouseStock.forEach((ws) => {
-      if (!counts[ws.warehouseId]) counts[ws.warehouseId] = { stock: 0 }
+      if (!counts[ws.warehouseId]) counts[ws.warehouseId] = { stock: 0, orders: 0 }
       if (ws.quantity > 0) counts[ws.warehouseId].stock++
+    })
+    // Count orders per warehouse
+    s.orders.forEach((o) => {
+      if (o.warehouseId && counts[o.warehouseId]) counts[o.warehouseId].orders++
     })
     return counts
   })
   const warehouses = useDataStore((s) => s.warehouses.map((w) => ({
     ...w,
-    _count: { stock: warehouseStockCounts[w.id]?.stock || 0, orders: 0 },
+    _count: { stock: warehouseStockCounts[w.id]?.stock || 0, orders: warehouseStockCounts[w.id]?.orders || 0 },
   })))
 
   // Add warehouse dialog
@@ -1567,44 +1550,27 @@ export function AdminPanel() {
     }
   }, [])
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const ordersRes = await fetch('/api/orders')
-      const ordersData = await ordersRes.json()
-      setOrders(ordersData.orders || [])
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (isLoggedIn) fetchData()
-  }, [isLoggedIn, fetchData])
-
   const handleLogout = () => {
     localStorage.removeItem('admin-token')
     setIsLoggedIn(false)
     setCurrentView('shop')
   }
 
-  const updateOrderStatus = async (orderId: string, status: string, warehouseId?: string) => {
-    try {
-      const body: Record<string, string> = { orderId, status }
-      if (warehouseId) body.warehouseId = warehouseId
-      if (status === 'ready') body.pickupTime = new Date(Date.now() + 30 * 60000).toISOString()
+  const updateOrderStatus = (orderId: string, status: string, warehouseId?: string) => {
+    const pickupTime = status === 'ready' ? new Date(Date.now() + 30 * 60000).toISOString() : undefined
+    useDataStore.getState().updateOrderStatus(
+      orderId,
+      status as Order['status'],
+      warehouseId,
+      pickupTime
+    )
+  }
 
-      await fetch('/api/orders', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      fetchData()
-    } catch (err) {
-      console.error(err)
-    }
+  // Get warehouse info for an order
+  const getOrderWarehouse = (order: Order) => {
+    if (!order.warehouseId) return null
+    const wh = useDataStore.getState().getWarehouseById(order.warehouseId)
+    return wh ? { id: wh.id, name: wh.name, address: wh.address } : null
   }
 
   const handleAddWarehouse = () => {
@@ -1631,6 +1597,7 @@ export function AdminPanel() {
   }
 
   const totalRevenue = orders.filter((o) => o.status !== 'cancelled').reduce((s, o) => s + o.totalAmount, 0)
+  const loading = false
 
   // ========== LOGIN ==========
   if (!isLoggedIn) {
@@ -1674,8 +1641,8 @@ export function AdminPanel() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="rounded-xl" onClick={fetchData}>
-              <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+            <Button variant="outline" size="sm" className="rounded-xl" onClick={() => useDataStore.getState()}>
+              <RefreshCw className="h-4 w-4 mr-1" />
               <span className="hidden sm:inline">Yangilash</span>
             </Button>
             <Button variant="outline" size="sm" className="rounded-xl text-red-600 border-red-200 hover:bg-red-50" onClick={handleLogout}>
@@ -1775,9 +1742,9 @@ export function AdminPanel() {
                                     ))}
                                   </div>
                                   <Separator />
-                                  {order.warehouse && (
-                                    <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-emerald-600" /><span>{order.warehouse.name} — {order.warehouse.address}</span></div>
-                                  )}
+                                  {(() => { const wh = getOrderWarehouse(order); return wh && (
+                                    <div className="flex items-center gap-2 text-sm"><MapPin className="h-4 w-4 text-emerald-600" /><span>{wh.name} — {wh.address}</span></div>
+                                  )})()}
                                   <div className="flex flex-wrap gap-2">
                                     {order.status === 'pending' && (
                                       <>
@@ -1908,7 +1875,7 @@ export function AdminPanel() {
 
           {activeTab === 'create-order' && (
             <motion.div key="create-order" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              <CreateOrderView onCreated={fetchData} />
+              <CreateOrderView onCreated={() => {}} />
             </motion.div>
           )}
 

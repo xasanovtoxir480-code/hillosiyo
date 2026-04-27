@@ -37,6 +37,29 @@ export interface WarehouseStock {
   quantity: number
 }
 
+export interface OrderItem {
+  id: string
+  productId: string
+  productName: string
+  productImage: string
+  price: number
+  quantity: number
+  unit: string
+}
+
+export interface Order {
+  id: string
+  orderNumber: string
+  customerName: string
+  customerPhone: string
+  status: 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+  totalAmount: number
+  createdAt: string
+  items: OrderItem[]
+  warehouseId: string | null
+  pickupTime: string | null
+}
+
 // ========== DEFAULT DATA ==========
 const defaultCategories: Category[] = [
   { id: 'cat-1', nameUz: 'Sabzavotlar', icon: '🥕', isActive: true },
@@ -57,6 +80,7 @@ interface DataStore {
   products: Product[]
   warehouses: Warehouse[]
   warehouseStock: WarehouseStock[]
+  orders: Order[]
 
   // Category actions
   addCategory: (category: Omit<Category, 'id'>) => string
@@ -76,12 +100,17 @@ interface DataStore {
   removeStock: (warehouseId: string, productId: string) => void
   transferStock: (fromWarehouseId: string, toWarehouseId: string, productId: string, quantity: number) => boolean
 
+  // Order actions
+  addOrder: (order: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'status'>) => Order
+  updateOrderStatus: (orderId: string, status: Order['status'], warehouseId?: string, pickupTime?: string) => void
+
   // Helper getters
   getProduct: (id: string) => Product | undefined
   getProductsForCustomer: () => CustomerProduct[]
   getWarehouseStock: (warehouseId: string) => WarehouseStockItem[]
   getTotalStockForProduct: (productId: string) => number
   getWarehousesForProduct: (productId: string) => { name: string; address: string }[]
+  getWarehouseById: (id: string) => Warehouse | undefined
 }
 
 // ========== CUSTOMER PRODUCT TYPE ==========
@@ -122,6 +151,7 @@ export const useDataStore = create<DataStore>()(
       products: [],
       warehouses: [],
       warehouseStock: [],
+      orders: [],
 
       // ========== CATEGORY ACTIONS ==========
       addCategory: (category) => {
@@ -259,6 +289,51 @@ export const useDataStore = create<DataStore>()(
         return true
       },
 
+      // ========== ORDER ACTIONS ==========
+      addOrder: (orderData) => {
+        const state = get()
+        const orderCount = state.orders.length
+        const orderNumber = `PK-${String(orderCount + 1).padStart(5, '0')}`
+        const order: Order = {
+          ...orderData,
+          id: generateId('order'),
+          orderNumber,
+          createdAt: new Date().toISOString(),
+          status: 'pending',
+        }
+
+        // Decrease stock for each item
+        for (const item of orderData.items) {
+          const stockEntry = state.warehouseStock.find((s) => s.productId === item.productId)
+          if (stockEntry) {
+            set((s) => ({
+              warehouseStock: s.warehouseStock.map((ws) =>
+                ws.id === stockEntry.id
+                  ? { ...ws, quantity: Math.max(0, ws.quantity - item.quantity) }
+                  : ws
+              ),
+            }))
+          }
+        }
+
+        set((state) => ({
+          orders: [order, ...state.orders],
+        }))
+        return order
+      },
+
+      updateOrderStatus: (orderId, status, warehouseId, pickupTime) => {
+        set((state) => ({
+          orders: state.orders.map((o) => {
+            if (o.id !== orderId) return o
+            const updated = { ...o, status }
+            if (warehouseId !== undefined) updated.warehouseId = warehouseId
+            if (pickupTime !== undefined) updated.pickupTime = pickupTime
+            return updated
+          }),
+        }))
+      },
+
       // ========== HELPERS ==========
       getProduct: (id) => {
         return get().products.find((p) => p.id === id)
@@ -348,6 +423,10 @@ export const useDataStore = create<DataStore>()(
           })
           .filter(Boolean) as { name: string; address: string }[]
       },
+
+      getWarehouseById: (id) => {
+        return get().warehouses.find((w) => w.id === id)
+      },
     }),
     {
       name: 'darkstore-data',
@@ -356,6 +435,7 @@ export const useDataStore = create<DataStore>()(
         products: state.products,
         warehouses: state.warehouses,
         warehouseStock: state.warehouseStock,
+        orders: state.orders,
       }),
     }
   )

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, MapPin, Phone, User, Package, CreditCard } from 'lucide-react'
+import { ArrowLeft, MapPin, Phone, User, Package, CreditCard, Warehouse } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,7 +14,7 @@ import { formatPrice } from '@/lib/format'
 import { useToast } from '@/hooks/use-toast'
 
 export function CheckoutView() {
-  const { items, getTotal, clearCart, setCurrentView } = useCartStore()
+  const { items, getTotal, clearCart, setCurrentView, warehouseInfo } = useCartStore()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -62,10 +62,15 @@ export function CheckoutView() {
       if (res.ok) {
         const order = data.order
         const pickupTime = new Date(Date.now() + 30 * 60000)
+
+        // Use warehouse info from the order response, or from the cart store
+        const whName = order.warehouse?.name || warehouseInfo?.name || 'Buyurtma qabul qilindi'
+        const whAddress = order.warehouse?.address || warehouseInfo?.address || 'Ombor tanlanmadi'
+
         useCartStore.getState().setOrderSuccessData({
           orderNumber: order.orderNumber,
-          warehouseName: order.warehouse?.name || 'Buyurtma qabul qilindi',
-          warehouseAddress: order.warehouse?.address || 'Ombor tanlanmadi',
+          warehouseName: whName,
+          warehouseAddress: whAddress,
           pickupTime: pickupTime.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
         })
         clearCart()
@@ -121,7 +126,6 @@ export function CheckoutView() {
             ))}
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6" id="checkout-form">
             {/* Customer Info */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border">
@@ -161,6 +165,20 @@ export function CheckoutView() {
                 </div>
               </div>
             </div>
+
+            {/* Pickup Location - from warehouse info */}
+            {warehouseInfo && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 flex items-start gap-4">
+                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                  <Warehouse className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-blue-800">Pickup manzili</p>
+                  <p className="text-blue-700 font-medium mt-1">{warehouseInfo.name}</p>
+                  <p className="text-blue-600 text-sm mt-0.5">{warehouseInfo.address}</p>
+                </div>
+              </div>
+            )}
 
             {/* Order Items Summary */}
             <div className="bg-white rounded-2xl p-6 shadow-sm border">

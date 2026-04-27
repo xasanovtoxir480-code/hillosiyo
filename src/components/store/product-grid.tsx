@@ -4,12 +4,17 @@ import { useState, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { formatPrice } from '@/lib/format'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Minus, ShoppingCart, Star, Search } from 'lucide-react'
+import { Plus, Minus, ShoppingCart, Star, Search, Package } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { useCartStore } from '@/store/cart-store'
 import { useToast } from '@/hooks/use-toast'
+
+interface WarehouseInfo {
+  name: string
+  address: string
+}
 
 interface Product {
   id: string
@@ -27,6 +32,7 @@ interface Product {
     nameUz: string
     icon: string
   }
+  warehouses: WarehouseInfo[]
 }
 
 interface ProductGridProps {
@@ -65,6 +71,23 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
   }
 
   const handleAdd = (product: Product) => {
+    const currentQty = getQuantity(product.id)
+    if (currentQty >= product.stock) {
+      toast({
+        title: 'Zaxira yetarli emas',
+        description: `Omborda faqat ${product.stock} ${product.unit} mavjud`,
+        variant: 'destructive',
+        duration: 2000,
+      })
+      return
+    }
+
+    // Determine the best warehouse for this item
+    const warehouseInfo = product.warehouses?.[0] || null
+    if (warehouseInfo) {
+      useCartStore.getState().setWarehouseInfo(warehouseInfo)
+    }
+
     addItem({
       id: product.id,
       productId: product.id,
@@ -74,6 +97,7 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
       unit: product.unit,
       categoryId: product.category.id,
       categoryIcon: product.category.icon,
+      maxStock: product.stock,
     })
     toast({
       title: `${product.category.icon} ${product.nameUz}`,
@@ -104,20 +128,22 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
         </div>
       )}
 
-      {/* Products */}
+      {/* No Products */}
       {!loading && products.length === 0 && (
         <div className="text-center py-20">
-          <div className="text-6xl mb-4">🔍</div>
-          <h3 className="text-xl font-bold text-gray-700">Mahsulot topilmadi</h3>
-          <p className="text-gray-500 mt-2">Boshqa kategoriya yoki kalit so&apos;zni tanlang</p>
+          <div className="text-6xl mb-4">📦</div>
+          <h3 className="text-xl font-bold text-gray-700">Hozircha mahsulot yo&apos;q</h3>
+          <p className="text-gray-500 mt-2">Ombor mahsulotlari qo&apos;shilganda shu yerda ko&apos;rinadi</p>
         </div>
       )}
 
+      {/* Products */}
       {!loading && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           <AnimatePresence mode="popLayout">
             {products.map((product) => {
               const quantity = getQuantity(product.id)
+              const isMaxed = quantity >= product.stock
               const discount = product.oldPrice
                 ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
                 : 0
@@ -164,13 +190,19 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
                     </div>
 
                     {/* Stock indicator */}
-                    {product.stock < 20 && (
-                      <div className="absolute bottom-2 right-2">
-                        <Badge variant="outline" className="bg-white/90 text-orange-600 text-xs border-orange-200">
-                          Kam qoldi: {product.stock}
-                        </Badge>
-                      </div>
-                    )}
+                    <div className="absolute bottom-2 right-2">
+                      <Badge variant="outline" className={cn(
+                        'text-xs px-2 py-0.5',
+                        product.stock <= 5
+                          ? 'bg-red-100 text-red-700 border-red-200'
+                          : product.stock <= 20
+                            ? 'bg-orange-100 text-orange-700 border-orange-200'
+                            : 'bg-white/90 text-emerald-700 border-emerald-200'
+                      )}>
+                        <Package className="h-3 w-3 mr-0.5" />
+                        {product.stock} {product.unit}
+                      </Badge>
+                    </div>
                   </div>
 
                   {/* Info */}
@@ -181,6 +213,13 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
                     <h3 className="font-bold text-sm sm:text-base text-gray-900 mb-2 line-clamp-2 min-h-[2.5rem]">
                       {product.nameUz}
                     </h3>
+
+                    {/* Warehouse info */}
+                    {product.warehouses?.[0]?.name && (
+                      <p className="text-xs text-gray-400 mb-2 truncate">
+                        📍 {product.warehouses[0].name}
+                      </p>
+                    )}
 
                     <div className="flex items-end justify-between">
                       <div>
@@ -210,9 +249,12 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
                               size="sm"
                               className={cn(
                                 'rounded-xl w-10 h-10 p-0 shadow-md',
-                                'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                product.stock <= 0
+                                  ? 'bg-gray-300 cursor-not-allowed'
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                               )}
                               onClick={() => handleAdd(product)}
+                              disabled={product.stock <= 0}
                             >
                               <Plus className="h-5 w-5" />
                             </Button>
@@ -238,8 +280,14 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
                             </span>
                             <Button
                               size="sm"
-                              className="rounded-lg w-8 h-8 p-0 bg-emerald-600 hover:bg-emerald-700 text-white"
-                              onClick={() => updateQuantity(product.id, quantity + 1)}
+                              className={cn(
+                                'rounded-lg w-8 h-8 p-0',
+                                isMaxed
+                                  ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              )}
+                              onClick={() => handleAdd(product)}
+                              disabled={isMaxed}
                             >
                               <Plus className="h-3 w-3" />
                             </Button>

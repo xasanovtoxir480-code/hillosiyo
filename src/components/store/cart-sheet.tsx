@@ -1,7 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingCart, Plus, Minus, Trash2, X } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Trash2, X, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -11,7 +11,7 @@ import { formatPrice } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 export function CartSheet() {
-  const { items, isCartOpen, setCartOpen, removeItem, updateQuantity, getTotal, getItemCount, setCurrentView } = useCartStore()
+  const { items, isCartOpen, setCartOpen, removeItem, updateQuantity, getTotal, getItemCount, setCurrentView, warehouseInfo } = useCartStore()
   const total = getTotal()
   const count = getItemCount()
 
@@ -96,65 +96,91 @@ export function CartSheet() {
                 </div>
               ) : (
                 <div className="flex flex-col flex-1 min-h-0">
+                  {/* Warehouse info */}
+                  {warehouseInfo && (
+                    <div className="mx-6 mt-4 bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-emerald-800">{warehouseInfo.name}</p>
+                        <p className="text-xs text-emerald-600">{warehouseInfo.address}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <ScrollArea className="flex-1 min-h-0 px-6 py-4">
                     <div className="space-y-4">
-                      {items.map((item) => (
-                        <motion.div
-                          key={item.productId}
-                          layout
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: 100 }}
-                          className="flex gap-4 p-3 bg-gray-50 rounded-xl"
-                        >
-                          {/* Image */}
-                          <div className="w-16 h-16 rounded-lg bg-white overflow-hidden flex-shrink-0 border">
-                            {item.productImage ? (
-                              <img
-                                src={item.productImage}
-                                alt={item.productName}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-2xl bg-gray-50">
-                                {item.categoryIcon}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-semibold text-sm truncate">{item.productName}</h4>
-                            <p className="text-emerald-700 font-bold text-sm mt-1">
-                              {formatPrice(item.price)} / {item.unit}
-                            </p>
-
-                            <div className="flex items-center justify-between mt-2">
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-7 w-7 p-0 rounded-lg"
-                                  onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                                >
-                                  {item.quantity === 1 ? <Trash2 className="h-3 w-3 text-red-500" /> : <Minus className="h-3 w-3" />}
-                                </Button>
-                                <span className="font-bold text-sm w-6 text-center">{item.quantity}</span>
-                                <Button
-                                  size="sm"
-                                  className="h-7 w-7 p-0 rounded-lg bg-emerald-600 hover:bg-emerald-700"
-                                  onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <span className="font-bold text-sm">
-                                {formatPrice(item.price * item.quantity)}
-                              </span>
+                      {items.map((item) => {
+                        const isMaxed = item.quantity >= (item.maxStock || 999)
+                        return (
+                          <motion.div
+                            key={item.productId}
+                            layout
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, x: 100 }}
+                            className="flex gap-4 p-3 bg-gray-50 rounded-xl"
+                          >
+                            {/* Image */}
+                            <div className="w-16 h-16 rounded-lg bg-white overflow-hidden flex-shrink-0 border">
+                              {item.productImage ? (
+                                <img
+                                  src={item.productImage}
+                                  alt={item.productName}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-2xl bg-gray-50">
+                                  {item.categoryIcon}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        </motion.div>
-                      ))}
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-sm truncate">{item.productName}</h4>
+                              <p className="text-emerald-700 font-bold text-sm mt-1">
+                                {formatPrice(item.price)} / {item.unit}
+                              </p>
+
+                              <div className="flex items-center justify-between mt-2">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 w-7 p-0 rounded-lg"
+                                    onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                                  >
+                                    {item.quantity === 1 ? <Trash2 className="h-3 w-3 text-red-500" /> : <Minus className="h-3 w-3" />}
+                                  </Button>
+                                  <span className="font-bold text-sm w-6 text-center">{item.quantity}</span>
+                                  <Button
+                                    size="sm"
+                                    className={cn(
+                                      'h-7 w-7 p-0 rounded-lg',
+                                      isMaxed
+                                        ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                                        : 'bg-emerald-600 hover:bg-emerald-700'
+                                    )}
+                                    onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                                    disabled={isMaxed}
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <span className="font-bold text-sm">
+                                  {formatPrice(item.price * item.quantity)}
+                                </span>
+                              </div>
+                              {/* Stock limit hint */}
+                              {isMaxed && (
+                                <p className="text-xs text-orange-500 mt-1">
+                                  Maks: {item.maxStock} {item.unit}
+                                </p>
+                              )}
+                            </div>
+                          </motion.div>
+                        )
+                      })}
                     </div>
                   </ScrollArea>
 

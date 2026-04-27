@@ -24,6 +24,7 @@ import {
   ChevronRight,
   AlertCircle,
   Search,
+  Pencil,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -101,11 +102,22 @@ interface WarehouseStockItem {
 interface Product {
   id: string
   nameUz: string
+  name: string
   price: number
+  oldPrice: number | null
   unit: string
   image: string
   stock: number
-  category: { icon: string; nameUz: string }
+  isActive: boolean
+  isFeatured: boolean
+  categoryId: string
+  category: { id: string; icon: string; nameUz: string }
+}
+
+interface Category {
+  id: string
+  nameUz: string
+  icon: string
 }
 
 // ========== CONSTANTS ==========
@@ -117,7 +129,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: React.R
   completed: { label: 'Topshirildi', color: 'bg-gray-100 text-gray-700 border-gray-200', icon: <CheckCircle2 className="h-3 w-3" /> },
 }
 
-type AdminTab = 'orders' | 'warehouses' | 'create-order' | 'transfer'
+type AdminTab = 'orders' | 'warehouses' | 'products' | 'create-order' | 'transfer'
 
 // ========== LOGIN SCREEN ==========
 function LoginScreen({ onLogin }: { onLogin: () => void }) {
@@ -826,6 +838,354 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   )
 }
 
+// ========== PRODUCTS VIEW ==========
+function ProductsView() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterCategory, setFilterCategory] = useState('all')
+  const { toast } = useToast()
+
+  // Add product dialog
+  const [addOpen, setAddOpen] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newNameUz, setNewNameUz] = useState('')
+  const [newCategoryId, setNewCategoryId] = useState('')
+  const [newPrice, setNewPrice] = useState('')
+  const [newUnit, setNewUnit] = useState('kg')
+
+  // Edit price dialog
+  const [editOpen, setEditOpen] = useState(false)
+  const [editProduct, setEditProduct] = useState<Product | null>(null)
+  const [editPrice, setEditPrice] = useState('')
+  const [editNameUz, setEditNameUz] = useState('')
+
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [productsRes, categoriesRes] = await Promise.all([
+        fetch('/api/products'),
+        fetch('/api/products/categories'),
+      ])
+      const productsData = await productsRes.json()
+      const categoriesData = await categoriesRes.json()
+      setProducts(productsData.products || [])
+      setCategories(categoriesData.categories || [])
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const handleAddProduct = async () => {
+    if (!newName.trim() || !newNameUz.trim() || !newCategoryId || !newPrice) {
+      toast({ title: "Barcha maydonlarni to'ldiring", variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName,
+          nameUz: newNameUz,
+          categoryId: newCategoryId,
+          price: newPrice,
+          unit: newUnit,
+          image: '/products/default.jpg',
+          stock: 100,
+        }),
+      })
+      if (res.ok) {
+        toast({ title: 'Mahsulot qo\'shildi!' })
+        setAddOpen(false)
+        setNewName('')
+        setNewNameUz('')
+        setNewCategoryId('')
+        setNewPrice('')
+        setNewUnit('kg')
+        fetchData()
+      }
+    } catch {
+      toast({ title: 'Xatolik', variant: 'destructive' })
+    }
+  }
+
+  const openEditDialog = (product: Product) => {
+    setEditProduct(product)
+    setEditNameUz(product.nameUz)
+    setEditPrice(String(product.price))
+    setEditOpen(true)
+  }
+
+  const handleEditProduct = async () => {
+    if (!editProduct || !editPrice) {
+      toast({ title: 'Narxni kiriting', variant: 'destructive' })
+      return
+    }
+    try {
+      const res = await fetch('/api/products', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          productId: editProduct.id,
+          nameUz: editNameUz,
+          price: parseFloat(editPrice),
+        }),
+      })
+      if (res.ok) {
+        toast({ title: `${editProduct.nameUz} narxi yangilandi!` })
+        setEditOpen(false)
+        setEditProduct(null)
+        fetchData()
+      }
+    } catch {
+      toast({ title: 'Xatolik', variant: 'destructive' })
+    }
+  }
+
+  const handleDeleteProduct = async (productId: string, productName: string) => {
+    if (!confirm(`${productName} mahsulotini o\'chirishni tasdiqlaysizmi?`)) return
+    try {
+      const res = await fetch(`/api/products?id=${productId}`, { method: 'DELETE' })
+      if (res.ok) {
+        toast({ title: `${productName} o'chirildi` })
+        fetchData()
+      } else {
+        const data = await res.json()
+        toast({ title: data.error || 'Xatolik', variant: 'destructive' })
+      }
+    } catch {
+      toast({ title: 'Xatolik', variant: 'destructive' })
+    }
+  }
+
+  const filteredProducts = products.filter((p) => {
+    const matchSearch = p.nameUz.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.name.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchCategory = filterCategory === 'all' || p.categoryId === filterCategory
+    return matchSearch && matchCategory
+  })
+
+  const groupedProducts = categories.map((cat) => ({
+    category: cat,
+    items: filteredProducts.filter((p) => p.categoryId === cat.id),
+  })).filter((g) => g.items.length > 0)
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* Header with Add button */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold flex items-center gap-2">
+          <Package className="h-5 w-5 text-emerald-600" />
+          Mahsulotlar ({products.length})
+        </h2>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl">
+              <Plus className="h-4 w-4 mr-2" /> Yangi mahsulot
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Yangi mahsulot qo&apos;shish</DialogTitle>
+              <DialogDescription>Yangi kelgan mahsulotni qo&apos;shing va narxini belgilang</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Mahsulot nomi (o&apos;zbekcha)</Label>
+                <Input placeholder="Masalan: Pomidor" value={newNameUz} onChange={(e) => setNewNameUz(e.target.value)} className="h-11 rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Label>Mahsulot nomi (ruscha/inglizcha)</Label>
+                <Input placeholder="Masalan: Tomat" value={newName} onChange={(e) => setNewName(e.target.value)} className="h-11 rounded-xl" />
+              </div>
+              <div className="space-y-2">
+                <Label>Kategoriya</Label>
+                <Select value={newCategoryId} onValueChange={setNewCategoryId}>
+                  <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Kategoriya tanlang" /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.icon} {c.nameUz}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>1 kg narxi (so&apos;m)</Label>
+                  <div className="relative">
+                    <Input type="number" placeholder="15000" value={newPrice} onChange={(e) => setNewPrice(e.target.value)} className="h-11 rounded-xl pr-10" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">so&apos;m</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>O&apos;lchov birligi</Label>
+                  <Select value={newUnit} onValueChange={setNewUnit}>
+                    <SelectTrigger className="h-11 rounded-xl"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="kg">kg</SelectItem>
+                      <SelectItem value="dona">dona</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddOpen(false)} className="rounded-xl">Bekor</Button>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl" onClick={handleAddProduct}>
+                <Plus className="h-4 w-4 mr-1" /> Qo&apos;shish
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Search & Filter */}
+      <Card className="border-0 shadow-sm">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input placeholder="Mahsulot qidirish..." className="pl-10 h-10 rounded-xl" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            </div>
+            <Select value={filterCategory} onValueChange={setFilterCategory}>
+              <SelectTrigger className="h-10 rounded-xl w-full sm:w-48"><SelectValue placeholder="Kategoriya" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Barchasi</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.icon} {c.nameUz}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Products List */}
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>
+      ) : groupedProducts.length === 0 ? (
+        <Card className="border-0 shadow-sm">
+          <CardContent className="py-12 text-center text-gray-400">
+            <Package className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p>Mahsulot topilmadi</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-6">
+          {groupedProducts.map((group) => (
+            <Card key={group.category.id} className="border-0 shadow-sm">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <span className="text-lg">{group.category.icon}</span>
+                  {group.category.nameUz}
+                  <Badge variant="secondary" className="ml-auto">{group.items.length} ta</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-1">
+                  {group.items.map((product) => (
+                    <div key={product.id} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-lg overflow-hidden border shrink-0">
+                          {product.image.startsWith('/products/') ? (
+                            <img src={product.image} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            group.category.icon
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{product.nameUz}</p>
+                          <p className="text-xs text-gray-400">Sklad: {product.stock} {product.unit}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right mr-1">
+                          <p className="font-bold text-emerald-700">{formatPrice(product.price)}</p>
+                          <p className="text-xs text-gray-400">/{product.unit}</p>
+                        </div>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-blue-600 hover:bg-blue-50" onClick={() => openEditDialog(product)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-red-500 hover:bg-red-50" onClick={() => handleDeleteProduct(product.id, product.nameUz)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {/* Mobile: always show buttons */}
+                        <div className="flex gap-1 sm:hidden">
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-blue-600 hover:bg-blue-50" onClick={() => openEditDialog(product)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg text-red-500 hover:bg-red-50" onClick={() => handleDeleteProduct(product.id, product.nameUz)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Edit Product Dialog */}
+      <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setEditProduct(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Narxni tahrirlash</DialogTitle>
+            <DialogDescription>
+              {editProduct?.category.icon} {editProduct?.nameUz}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-5 py-4">
+            <div className="space-y-2">
+              <Label>Mahsulot nomi</Label>
+              <Input value={editNameUz} onChange={(e) => setEditNameUz(e.target.value)} className="h-11 rounded-xl" />
+            </div>
+            <div className="space-y-2">
+              <Label>1 {editProduct?.unit || 'kg'} narxi (so&apos;m)</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  className="h-12 text-lg rounded-xl pr-10"
+                  autoFocus
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">so&apos;m</span>
+              </div>
+              {editProduct && parseFloat(editPrice) > 0 && parseFloat(editPrice) !== editProduct.price && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-gray-400">Eski narx:</span>
+                  <span className="line-through text-gray-400">{formatPrice(editProduct.price)}</span>
+                  <ArrowRight className="h-3 w-3 text-gray-400" />
+                  <span className="font-bold text-emerald-700">{formatPrice(parseFloat(editPrice))}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" className="rounded-xl h-11" onClick={() => setEditOpen(false)}>Bekor</Button>
+            <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-11 px-6" onClick={handleEditProduct}>
+              <Pencil className="h-4 w-4 mr-2" /> Saqlash
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </motion.div>
+  )
+}
+
 // ========== MAIN ADMIN PANEL ==========
 export function AdminPanel() {
   const { setCurrentView } = useCartStore()
@@ -959,6 +1319,7 @@ export function AdminPanel() {
   const tabs: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
     { key: 'orders', label: 'Buyurtmalar', icon: <Package className="h-4 w-4" /> },
     { key: 'warehouses', label: 'Omborlar', icon: <Warehouse className="h-4 w-4" /> },
+    { key: 'products', label: 'Mahsulotlar', icon: <ShoppingCart className="h-4 w-4" /> },
     { key: 'create-order', label: 'Buyurtma+', icon: <Plus className="h-4 w-4" /> },
     { key: 'transfer', label: "O'tkazish", icon: <ArrowRightLeft className="h-4 w-4" /> },
   ]
@@ -1203,6 +1564,12 @@ export function AdminPanel() {
                   </Card>
                 ))}
               </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'products' && (
+            <motion.div key="products" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              <ProductsView />
             </motion.div>
           )}
 

@@ -63,7 +63,7 @@ export function CartSheet() {
               className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-white z-50 shadow-2xl flex flex-col"
             >
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center justify-between p-6 border-b shrink-0">
                 <div className="flex items-center gap-3">
                   <ShoppingCart className="h-6 w-6 text-emerald-600" />
                   <h2 className="text-xl font-bold">Savat</h2>
@@ -95,8 +95,8 @@ export function CartSheet() {
                   </Button>
                 </div>
               ) : (
-                <>
-                  <ScrollArea className="flex-1 px-6 py-4">
+                <div className="flex flex-col flex-1 min-h-0">
+                  <ScrollArea className="flex-1 min-h-0 px-6 py-4">
                     <div className="space-y-4">
                       {items.map((item) => (
                         <motion.div
@@ -167,7 +167,7 @@ export function CartSheet() {
                   </ScrollArea>
 
                   {/* Footer */}
-                  <div className="border-t p-6 space-y-4 bg-gray-50">
+                  <div className="border-t p-6 space-y-4 bg-gray-50 shrink-0">
                     <div className="space-y-2">
                       <div className="flex justify-between text-sm text-gray-500">
                         <span>Jami ({count} ta)</span>
@@ -190,7 +190,7 @@ export function CartSheet() {
                       Buyurtma berish
                     </Button>
                   </div>
-                </>
+                </div>
               )}
             </motion.div>
           </>

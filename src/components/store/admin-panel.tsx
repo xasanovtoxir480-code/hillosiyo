@@ -144,23 +144,40 @@ function ImageUploader({
 }) {
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState(value)
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [fileName, setFileName] = useState('')
+  const [dragOver, setDragOver] = useState(false)
   const { toast } = useToast()
 
   // Sync preview with value prop changes
   useEffect(() => {
     setPreview(value)
+    if (value && value !== '/products/default.jpg') {
+      setUploadStatus('success')
+    }
   }, [value])
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+  const processFile = async (file: File) => {
     if (!file) return
 
     if (file.size > 5 * 1024 * 1024) {
       toast({ title: 'Fayl hajmi 5MB dan oshmasligi kerak', variant: 'destructive' })
+      setUploadStatus('error')
       return
     }
 
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: 'Faqat JPG, PNG, WebP, GIF ruxsat etiladi', variant: 'destructive' })
+      setUploadStatus('error')
+      return
+    }
+
+    setFileName(file.name)
     setUploading(true)
+    setUploadStatus('idle')
+
     try {
       const formData = new FormData()
       formData.append('file', file)
@@ -172,56 +189,158 @@ function ImageUploader({
       if (res.ok && data.url) {
         onChange(data.url)
         setPreview(data.url)
-        toast({ title: 'Rasm yuklandi!', duration: 1500 })
+        setUploadStatus('success')
+        toast({ title: 'Rasm muvaffaqiyatli yuklandi!', description: file.name, duration: 2000 })
       } else {
+        setUploadStatus('error')
         toast({ title: data.error || 'Xatolik yuz berdi', variant: 'destructive' })
       }
     } catch {
+      setUploadStatus('error')
       toast({ title: 'Rasm yuklashda xatolik', variant: 'destructive' })
     } finally {
       setUploading(false)
     }
   }
 
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }
+
+  const handleRemove = () => {
+    setPreview('')
+    onChange('/products/default.jpg')
+    setUploadStatus('idle')
+    setFileName('')
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) processFile(file)
+  }
+
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
-      <div className="flex items-center gap-3">
-        {/* Preview */}
-        <div className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden bg-gray-50 shrink-0">
-          {preview ? (
-            <img
-              src={preview}
-              alt="Preview"
-              className="w-full h-full object-cover"
-              onError={() => setPreview('')}
-            />
-          ) : (
-            <ImageIcon className="h-6 w-6 text-gray-300" />
-          )}
-        </div>
-        {/* Upload button */}
-        <label className="flex-1">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/gif"
-            className="hidden"
-            onChange={handleUpload}
-            disabled={uploading}
-          />
-          <div className={
-            'flex items-center justify-center gap-2 h-11 rounded-xl border-2 border-dashed cursor-pointer transition-colors ' +
-            (uploading
-              ? 'border-gray-200 bg-gray-50 text-gray-400'
-              : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300')
-          }>
-            {uploading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Yuklanmoqda...</>
-            ) : (
-              <><ImagePlus className="h-4 w-4" /> Rasm tanlash</>
-            )}
+      <Label className="text-sm font-medium">{label}</Label>
+
+      <div
+        className="relative rounded-xl border-2 overflow-hidden transition-all duration-300"
+        style={{
+          borderColor: dragOver ? '#10b981' : uploading ? '#9ca3af' : uploadStatus === 'error' ? '#ef4444' : uploadStatus === 'success' && preview ? '#10b981' : '#e5e7eb',
+          background: dragOver ? '#ecfdf5' : '#f9fafb',
+        }}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={handleDrop}
+      >
+        {/* Success indicator bar */}
+        {uploadStatus === 'success' && preview && preview !== '/products/default.jpg' && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500 z-10" />
+        )}
+        {uploadStatus === 'error' && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-red-500 z-10" />
+        )}
+
+        {preview && preview !== '/products/default.jpg' ? (
+          /* ===== IMAGE LOADED STATE ===== */
+          <div className="relative">
+            <div className="flex items-center gap-4 p-3">
+              {/* Large preview */}
+              <div className="w-20 h-20 rounded-lg overflow-hidden border-2 border-white shadow-md shrink-0">
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span className="text-sm font-semibold text-emerald-700 truncate">
+                    {fileName || 'Rasm yuklangan'}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 truncate">{preview}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={handleUpload}
+                      disabled={uploading}
+                    />
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors">
+                      <RefreshCw className="h-3 w-3" /> Almashtirish
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRemove}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-600 transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" /> O&apos;chirish
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </label>
+        ) : (
+          /* ===== EMPTY / UPLOAD STATE ===== */
+          <label className="block cursor-pointer">
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleUpload}
+              disabled={uploading}
+            />
+            <div className={`flex flex-col items-center justify-center py-6 px-4 transition-colors ${dragOver ? 'bg-emerald-50' : 'hover:bg-gray-50'}`}>
+              {uploading ? (
+                <>
+                  <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                    <Loader2 className="h-7 w-7 text-emerald-600 animate-spin" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">Yuklanmoqda...</p>
+                  <p className="text-xs text-gray-400 mt-1">Iltimos kuting</p>
+                </>
+              ) : (
+                <>
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-3 transition-colors ${dragOver ? 'bg-emerald-100' : 'bg-gray-100'}`}>
+                    {uploadStatus === 'error' ? (
+                      <XCircle className="h-7 w-7 text-red-400" />
+                    ) : (
+                      <ImagePlus className={`h-7 w-7 ${dragOver ? 'text-emerald-600' : 'text-gray-400'}`} />
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">
+                    {dragOver ? 'Rasmni tashlang' : 'Rasm yuklash'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Tanlash yoki shu yerga tashlash</p>
+                  {uploadStatus === 'error' && (
+                    <p className="text-xs text-red-500 mt-2 font-medium">Qayta urinib ko&apos;ring</p>
+                  )}
+                </>
+              )}
+            </div>
+          </label>
+        )}
+
+        {/* Uploading overlay shimmer */}
+        {uploading && preview && preview !== '/products/default.jpg' && (
+          <div className="absolute inset-0 bg-white/60 flex items-center justify-center z-10">
+            <div className="flex items-center gap-2 bg-white rounded-lg px-4 py-2 shadow-lg border">
+              <Loader2 className="h-4 w-4 text-emerald-600 animate-spin" />
+              <span className="text-sm font-medium text-gray-700">Yangi rasm yuklanmoqda...</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

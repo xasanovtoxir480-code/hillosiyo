@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useCartStore } from '@/store/cart-store'
-import { useDataStore } from '@/store/data-store'
 import { HeroSection } from '@/components/store/hero-section'
 import { CategoryBar } from '@/components/store/category-bar'
 import { ProductGrid } from '@/components/store/product-grid'
@@ -66,26 +65,30 @@ function NavBar({ onAdmin }: { onAdmin: () => void }) {
 
 export default function Page() {
   const [mounted, setMounted] = useState(false)
+  // Use Zustand HOOKS (reactive) instead of getState() (not reactive)
+  const currentView = useCartStore((s) => s.currentView)
+  const selectedCategory = useCartStore((s) => s.selectedCategory)
+  const searchQuery = useCartStore((s) => s.searchQuery)
+  const setSelectedCategory = useCartStore((s) => s.setSelectedCategory)
+  const setCurrentView = useCartStore((s) => s.setCurrentView)
 
   useEffect(() => {
     setMounted(true)
   }, [])
 
+  // Before mount: show loading (matches server-side render)
   if (!mounted) return <LoadingScreen />
 
-  const currentView = useCartStore.getState().currentView
-  const selectedCategory = useCartStore.getState().selectedCategory
-  const searchQuery = useCartStore.getState().searchQuery
-
+  // After mount: show correct view based on store state
   if (currentView === 'checkout') return <CheckoutView />
   if (currentView === 'order-success') return <OrderSuccessView />
   if (currentView === 'admin') return <AdminPanel />
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
-      <NavBar onAdmin={() => useCartStore.getState().setCurrentView('admin')} />
+      <NavBar onAdmin={() => setCurrentView('admin')} />
       <HeroSection />
-      <CategoryBar selected={selectedCategory} onSelect={(c) => useCartStore.getState().setSelectedCategory(c)} />
+      <CategoryBar selected={selectedCategory} onSelect={setSelectedCategory} />
       <ProductGrid categoryId={selectedCategory} searchQuery={searchQuery} />
       <Footer />
       <CartSheet />

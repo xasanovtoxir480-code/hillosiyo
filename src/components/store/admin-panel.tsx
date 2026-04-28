@@ -148,13 +148,12 @@ function ImageUploader({
   const processFile = async (file: File) => {
     if (!file) return
 
-    if (file.size > 5 * 1024 * 1024) {
-      toast({ title: 'Fayl hajmi 5MB dan oshmasligi kerak', variant: 'destructive' })
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: 'Fayl hajmi 2MB dan oshmasligi kerak', variant: 'destructive' })
       setUploadStatus('error')
       return
     }
 
-    // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
     if (!allowedTypes.includes(file.type)) {
       toast({ title: 'Faqat JPG, PNG, WebP, GIF ruxsat etiladi', variant: 'destructive' })
@@ -167,22 +166,17 @@ function ImageUploader({
     setUploadStatus('idle')
 
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
+      // Convert to base64 data URL — works everywhere, no server needed
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = () => reject(new Error('Faylni o\'qib bo\'lmadi'))
+        reader.readAsDataURL(file)
       })
-      const data = await res.json()
-      if (res.ok && data.url) {
-        onChange(data.url)
-        setPreview(data.url)
-        setUploadStatus('success')
-        toast({ title: 'Rasm muvaffaqiyatli yuklandi!', description: file.name, duration: 2000 })
-      } else {
-        setUploadStatus('error')
-        toast({ title: data.error || 'Xatolik yuz berdi', variant: 'destructive' })
-      }
+      onChange(base64)
+      setPreview(base64)
+      setUploadStatus('success')
+      toast({ title: 'Rasm muvaffaqiyatli yuklandi!', description: file.name, duration: 2000 })
     } catch {
       setUploadStatus('error')
       toast({ title: 'Rasm yuklashda xatolik', variant: 'destructive' })

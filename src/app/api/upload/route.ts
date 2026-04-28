@@ -1,8 +1,9 @@
-import { NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import path from 'path'
+import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, mkdir, copyFile } from 'fs/promises'
+import { join } from 'path'
+import { randomUUID } from 'crypto'
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -14,38 +15,42 @@ export async function POST(request: Request) {
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: 'Faqat rasm fayllari (JPG, PNG, WebP, GIF) ruxsat etiladi' }, { status: 400 })
+      return NextResponse.json({ error: 'Faqat JPG, PNG, WebP, GIF ruxsat etiladi' }, { status: 400 })
     }
 
-    // Validate file size (max 5MB)
+    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
       return NextResponse.json({ error: 'Fayl hajmi 5MB dan oshmasligi kerak' }, { status: 400 })
     }
 
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-
     // Generate unique filename
     const ext = file.name.split('.').pop() || 'jpg'
-    const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}.${ext}`
+    const filename = `${randomUUID()}.${ext}`
 
-    // Save to data/uploads/products/ — served via /api/files/ route (works in standalone mode too)
-    const uploadDir = path.join(process.cwd(), 'data', 'uploads', 'products')
+    // Save to data/uploads/products — served via /api/files/ route
+    const uploadDir = join(process.cwd(), 'data', 'uploads', 'products')
     await mkdir(uploadDir, { recursive: true })
 
-    // Write file
-    const filePath = path.join(uploadDir, uniqueName)
-    await writeFile(filePath, buffer)
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+    const filepath = join(uploadDir, filename)
+    await writeFile(filepath, buffer)
 
-    console.log(`[Upload] Saved: ${filePath}`)
+    // Also copy to source project public/products/ for backup
+    try {
+      const srcDir = join(process.cwd(), '..', '..', 'public', 'products')
+      await mkdir(srcDir, { recursive: true })
+      await copyFile(filepath, join(srcDir, filename))
+    } catch {
+      // Ignore — not always running from standalone
+    }
 
-    // Return URL served by /api/files/[...path] route
-    return NextResponse.json({
-      url: `/api/files/products/${uniqueName}`,
-      name: uniqueName,
-    })
+    // URL served by /api/files/[...path] route
+    const url = `/api/files/products/${filename}`
+
+    return NextResponse.json({ url, filename })
   } catch (error) {
     console.error('Upload error:', error)
-    return NextResponse.json({ error: 'Fayl yuklashda xatolik yuz berdi' }, { status: 500 })
+    return NextResponse.json({ error: 'Rasm yuklashda xatolik yuz berdi' }, { status: 500 })
   }
 }

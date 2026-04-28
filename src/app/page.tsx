@@ -1,24 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import AppContent from './app-content'
 
 export default function Page() {
-  const [mounted, setMounted] = useState(false)
+  const [AppContent, setAppContent] = useState<React.ComponentType | null>(null)
 
   useEffect(() => {
-    setMounted(true)
+    // Only import app-content AFTER the component mounts on the client.
+    // This guarantees the server and client render identical HTML during hydration.
+    import('./app-content').then((mod) => {
+      setAppContent(() => mod.default)
+    })
   }, [])
 
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">Yuklanmoqda...</p>
-        </div>
-      </div>
-    )
+  // Both server and client render <div /> during hydration — no mismatch possible.
+  if (!AppContent) {
+    return <div />
   }
 
   return <AppContent />

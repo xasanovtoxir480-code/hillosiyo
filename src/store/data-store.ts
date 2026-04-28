@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 
 // ========== TYPES ==========
 export interface Category {
@@ -144,7 +143,6 @@ export interface WarehouseStockItem {
 
 // ========== STORE ==========
 export const useDataStore = create<DataStore>()(
-  persist(
     (set, get) => ({
       // Initial data
       categories: defaultCategories,
@@ -427,16 +425,5 @@ export const useDataStore = create<DataStore>()(
       getWarehouseById: (id) => {
         return get().warehouses.find((w) => w.id === id)
       },
-    }),
-    {
-      name: 'darkstore-data',
-      partialize: (state) => ({
-        categories: state.categories,
-        products: state.products,
-        warehouses: state.warehouses,
-        warehouseStock: state.warehouseStock,
-        orders: state.orders,
-      }),
-    }
-  )
+    })
 )

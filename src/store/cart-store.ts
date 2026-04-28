@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 
 export interface CartItem {
   id: string
@@ -28,7 +27,6 @@ interface CartStore {
   orderSuccessData: { orderNumber: string; warehouseName: string; warehouseAddress: string; pickupTime: string } | null
   warehouseInfo: WarehouseInfo | null
 
-  // Cart actions
   addItem: (item: Omit<CartItem, 'quantity'>) => void
   removeItem: (productId: string) => void
   updateQuantity: (productId: string, quantity: number) => void
@@ -36,7 +34,6 @@ interface CartStore {
   getTotal: () => number
   getItemCount: () => number
 
-  // UI actions
   setCartOpen: (open: boolean) => void
   setCurrentView: (view: CartStore['currentView']) => void
   setSelectedCategory: (category: string) => void
@@ -46,74 +43,68 @@ interface CartStore {
 }
 
 export const useCartStore = create<CartStore>()(
-  persist(
-    (set, get) => ({
-      items: [],
-      isCartOpen: false,
-      currentView: 'shop',
-      selectedCategory: 'all',
-      searchQuery: '',
-      orderSuccessData: null,
-      warehouseInfo: null,
+  (set, get) => ({
+    items: [],
+    isCartOpen: false,
+    currentView: 'shop',
+    selectedCategory: 'all',
+    searchQuery: '',
+    orderSuccessData: null,
+    warehouseInfo: null,
 
-      addItem: (item) => {
-        const { items } = get()
-        const existingItem = items.find((i) => i.productId === item.productId)
-        const maxStock = item.maxStock || 999
+    addItem: (item) => {
+      const { items } = get()
+      const existingItem = items.find((i) => i.productId === item.productId)
+      const maxStock = item.maxStock || 999
 
-        if (existingItem) {
-          if (existingItem.quantity >= maxStock) return // stock limit
-          set({
-            items: items.map((i) =>
-              i.productId === item.productId
-                ? { ...i, quantity: Math.min(i.quantity + 1, maxStock) }
-                : i
-            ),
-          })
-        } else {
-          if (maxStock <= 0) return // no stock
-          set({ items: [...items, { ...item, quantity: 1 }] })
-        }
-      },
-
-      removeItem: (productId) => {
-        set({ items: get().items.filter((i) => i.productId !== productId) })
-      },
-
-      updateQuantity: (productId, quantity) => {
-        if (quantity <= 0) {
-          get().removeItem(productId)
-          return
-        }
-        const item = get().items.find((i) => i.productId === productId)
-        const maxStock = item?.maxStock || 999
+      if (existingItem) {
+        if (existingItem.quantity >= maxStock) return
         set({
-          items: get().items.map((i) =>
-            i.productId === productId ? { ...i, quantity: Math.min(quantity, maxStock) } : i
+          items: items.map((i) =>
+            i.productId === item.productId
+              ? { ...i, quantity: Math.min(i.quantity + 1, maxStock) }
+              : i
           ),
         })
-      },
+      } else {
+        if (maxStock <= 0) return
+        set({ items: [...items, { ...item, quantity: 1 }] })
+      }
+    },
 
-      clearCart: () => set({ items: [], warehouseInfo: null }),
+    removeItem: (productId) => {
+      set({ items: get().items.filter((i) => i.productId !== productId) })
+    },
 
-      getTotal: () => {
-        return get().items.reduce((total, item) => total + item.price * item.quantity, 0)
-      },
+    updateQuantity: (productId, quantity) => {
+      if (quantity <= 0) {
+        get().removeItem(productId)
+        return
+      }
+      const item = get().items.find((i) => i.productId === productId)
+      const maxStock = item?.maxStock || 999
+      set({
+        items: get().items.map((i) =>
+          i.productId === productId ? { ...i, quantity: Math.min(quantity, maxStock) } : i
+        ),
+      })
+    },
 
-      getItemCount: () => {
-        return get().items.reduce((count, item) => count + item.quantity, 0)
-      },
+    clearCart: () => set({ items: [], warehouseInfo: null }),
 
-      setCartOpen: (open) => set({ isCartOpen: open }),
-      setCurrentView: (view) => set({ currentView: view }),
-      setSelectedCategory: (category) => set({ selectedCategory: category }),
-      setSearchQuery: (query) => set({ searchQuery: query }),
-      setOrderSuccessData: (data) => set({ orderSuccessData: data }),
-      setWarehouseInfo: (info) => set({ warehouseInfo: info }),
-    }),
-    {
-      name: 'darkstore-cart',
-      partialize: (state) => ({ items: state.items }),
-    }
-  )
+    getTotal: () => {
+      return get().items.reduce((total, item) => total + item.price * item.quantity, 0)
+    },
+
+    getItemCount: () => {
+      return get().items.reduce((count, item) => count + item.quantity, 0)
+    },
+
+    setCartOpen: (open) => set({ isCartOpen: open }),
+    setCurrentView: (view) => set({ currentView: view }),
+    setSelectedCategory: (category) => set({ selectedCategory: category }),
+    setSearchQuery: (query) => set({ searchQuery: query }),
+    setOrderSuccessData: (data) => set({ orderSuccessData: data }),
+    setWarehouseInfo: (info) => set({ warehouseInfo: info }),
+  })
 )

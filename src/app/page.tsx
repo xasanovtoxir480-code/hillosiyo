@@ -78,12 +78,9 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      // Manually rehydrate Zustand stores after mount (SSR-safe)
-      useCartStore.persist.rehydrate()
-      useDataStore.persist.rehydrate()
       setMounted(true)
     } catch (e: any) {
-      console.error('Hydration error:', e)
+      console.error('Mount error:', e)
       setError(e.message)
     }
   }, [])

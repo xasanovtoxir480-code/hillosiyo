@@ -14,10 +14,10 @@ const mimeTypes: Record<string, string> = {
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ path: string[] }> }
+  { params }: { params: { path: string[] } }
 ) {
   try {
-    const { path: pathSegments } = await params
+    const pathSegments = params.path
     const filePath = path.join(process.cwd(), 'data', 'uploads', ...pathSegments)
 
     // Security: prevent directory traversal

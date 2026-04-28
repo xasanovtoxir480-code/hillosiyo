@@ -430,7 +430,6 @@ export const useDataStore = create<DataStore>()(
     }),
     {
       name: 'darkstore-data',
-      skipHydration: true,
       partialize: (state) => ({
         categories: state.categories,
         products: state.products,
@@ -438,11 +437,6 @@ export const useDataStore = create<DataStore>()(
         warehouseStock: state.warehouseStock,
         orders: state.orders,
       }),
-      onRehydrateStorage: () => (state) => {
-        if (state) {
-          useDataStore.setState({ _hasHydrated: true } as any)
-        }
-      },
     }
   )
 )

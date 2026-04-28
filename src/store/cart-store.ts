@@ -113,6 +113,7 @@ export const useCartStore = create<CartStore>()(
     }),
     {
       name: 'darkstore-cart',
+      skipHydration: true,
       partialize: (state) => ({ items: state.items }),
     }
   )

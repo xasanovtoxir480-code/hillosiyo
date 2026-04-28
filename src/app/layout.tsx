@@ -15,7 +15,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "PickUp Market — Toshkent | Yashirin Ombor",
   description: "Bozor narxidan arzon, navbat yo'q, toza va saralangan mahsulotlar. Online buyurtma va tezkor pickup xizmati.",
-  keywords: ["PickUp Market", "Toshkent", "dark store", "sabzavot", "meva", "pickup", "online savdo"],
 };
 
 export default function RootLayout({
@@ -24,7 +23,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="uz">
+    <html lang="uz" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
       >

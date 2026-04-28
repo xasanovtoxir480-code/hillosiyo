@@ -22,11 +22,54 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const { toast } = useToast()
 
-  // Get all customer-visible products from the data store
-  const allProducts = useDataStore((s) => s.getProductsForCustomer())
+  // Subscribe to raw state (not derived values) to avoid infinite loop
+  const products = useDataStore((s) => s.products)
+  const warehouseStock = useDataStore((s) => s.warehouseStock)
+  const categories = useDataStore((s) => s.categories)
+  const warehouses = useDataStore((s) => s.warehouses)
+
+  // Compute customer-visible products in useMemo
+  const allProducts = useMemo(() => {
+    return products
+      .filter((p) => p.isActive)
+      .map((p) => {
+        const productStocks = warehouseStock.filter(
+          (s) => s.productId === p.id && s.quantity > 0
+        )
+        const totalStock = productStocks.reduce((sum, s) => sum + s.quantity, 0)
+        const category = categories.find((c) => c.id === p.categoryId)
+        const whs = productStocks
+          .map((s) => {
+            const wh = warehouses.find((w) => w.id === s.warehouseId)
+            if (!wh) return null
+            return { name: wh.name, address: wh.address }
+          })
+          .filter(Boolean) as { name: string; address: string }[]
+
+        return {
+          id: p.id,
+          name: p.name,
+          nameUz: p.nameUz,
+          price: p.price,
+          oldPrice: p.oldPrice,
+          unit: p.unit,
+          image: p.image,
+          stock: totalStock,
+          isFeatured: p.isFeatured,
+          category: {
+            id: category?.id || '',
+            name: category?.nameUz || '',
+            nameUz: category?.nameUz || '',
+            icon: category?.icon || '📦',
+          },
+          warehouses: whs,
+        }
+      })
+      .filter((p) => p.stock > 0)
+  }, [products, warehouseStock, categories, warehouses])
 
   // Filter by category and search
-  const products = useMemo(() => {
+  const filteredProducts = useMemo(() => {
     let filtered = allProducts
     if (categoryId && categoryId !== 'all') {
       filtered = filtered.filter((p) => p.category.id === categoryId)
@@ -98,7 +141,7 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
       </div>
 
       {/* No Products */}
-      {products.length === 0 && (
+      {filteredProducts.length === 0 && (
         <div className="text-center py-20">
           <div className="text-6xl mb-4">📦</div>
           <h3 className="text-xl font-bold text-gray-700">Hozircha mahsulot yo&apos;q</h3>
@@ -107,9 +150,9 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
       )}
 
       {/* Products */}
-      {products.length > 0 && (
+      {filteredProducts.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {products.map((product) => {
+          {filteredProducts.map((product) => {
             const quantity = getQuantity(product.id)
             const stock = product.stock
             const isMaxed = quantity >= stock

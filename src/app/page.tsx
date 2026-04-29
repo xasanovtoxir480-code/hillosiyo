@@ -1,20 +1,23 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { createRoot } from 'react-dom/client'
 import AppContent from './app-content'
 
+// This page COMPLETELY bypasses React hydration to prevent error #185.
+// Server renders an empty <div>. Client hydrates that same empty <div> (no mismatch).
+// Then useEffect mounts AppContent via createRoot() — a fresh client-only render tree.
 export default function Page() {
-  const [mounted, setMounted] = useState(false)
+  const hostRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setMounted(true)
+    if (!hostRef.current) return
+    const el = document.createElement('div')
+    el.id = 'client-app'
+    hostRef.current.appendChild(el)
+    const root = createRoot(el)
+    root.render(<AppContent />)
   }, [])
 
-  // Both server and client render the same empty div during hydration.
-  // After mount, client renders the full AppContent.
-  if (!mounted) {
-    return <div data-app-loading="" />
-  }
-
-  return <AppContent />
+  return <div ref={hostRef} />
 }

@@ -1,7 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
-
 export default function Error({
   error,
   reset,
@@ -9,16 +7,6 @@ export default function Error({
   error: Error & { digest?: string }
   reset: () => void
 }) {
-  // Auto-retry once for hydration errors (error #185).
-  // React can recover after the first failed hydration attempt.
-  useEffect(() => {
-    const msg = error?.message || ''
-    if (msg.includes('185') || msg.includes('hydration') || msg.includes('Hydration')) {
-      const t = setTimeout(() => reset(), 0)
-      return () => clearTimeout(t)
-    }
-  }, [error, reset])
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-white p-4">
       <div className="max-w-lg w-full text-center space-y-6">
@@ -28,7 +16,18 @@ export default function Error({
           </svg>
         </div>
         <h2 className="text-2xl font-bold text-gray-900">Xatolik yuz berdi</h2>
-        <p className="text-gray-500">Sahifani yuklashda xatolik yuz berdi.</p>
+        <div className="bg-gray-50 rounded-xl p-4 text-left">
+          <p className="text-sm font-mono text-red-600 break-all">{error?.message || 'Nomaʼlum xato'}</p>
+          {error?.digest && (
+            <p className="text-xs text-gray-400 mt-2">Error ID: {error.digest}</p>
+          )}
+          {error?.stack && (
+            <details className="mt-3">
+              <summary className="text-xs text-gray-500 cursor-pointer">Stack trace</summary>
+              <pre className="mt-2 text-xs text-gray-400 overflow-auto whitespace-pre-wrap max-h-40">{error.stack}</pre>
+            </details>
+          )}
+        </div>
         <button
           onClick={reset}
           className="bg-emerald-600 text-white px-8 py-3 rounded-xl font-semibold hover:bg-emerald-700 transition-colors"

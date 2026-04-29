@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft,
@@ -452,14 +452,18 @@ function WarehouseDetail({
 
   // Subscribe to store data
   const stock = useDataStore((s) => s.getWarehouseStock(warehouse.id))
-  const products = useDataStore((s) => s.products.map((p) => {
-    const cat = s.categories.find((c) => c.id === p.categoryId)
+  const rawProducts = useDataStore((s) => s.products)
+  const rawCategories = useDataStore((s) => s.categories)
+  const rawWarehouseStock = useDataStore((s) => s.warehouseStock)
+  const products = useMemo(() => rawProducts.map((p) => {
+    const cat = rawCategories.find((c) => c.id === p.categoryId)
+    const totalStock = rawWarehouseStock.filter((ws) => ws.productId === p.id).reduce((sum, ws) => sum + ws.quantity, 0)
     return {
       ...p,
       category: { id: cat?.id || '', icon: cat?.icon || '', nameUz: cat?.nameUz || '' },
-      stock: s.getTotalStockForProduct(p.id),
+      stock: totalStock,
     }
-  }))
+  }), [rawProducts, rawCategories, rawWarehouseStock])
 
   const handleAddProduct = () => {
     if (!addProductId || !addQuantity || parseInt(addQuantity) <= 0) {
@@ -705,14 +709,18 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
   const [editPriceImage, setEditPriceImage] = useState('')
 
   // Subscribe to store data
-  const products = useDataStore((s) => s.products.map((p) => {
-    const cat = s.categories.find((c) => c.id === p.categoryId)
+  const rawProducts2 = useDataStore((s) => s.products)
+  const rawCategories2 = useDataStore((s) => s.categories)
+  const rawWarehouseStock2 = useDataStore((s) => s.warehouseStock)
+  const products = useMemo(() => rawProducts2.map((p) => {
+    const cat = rawCategories2.find((c) => c.id === p.categoryId)
+    const totalStock = rawWarehouseStock2.filter((ws) => ws.productId === p.id).reduce((sum, ws) => sum + ws.quantity, 0)
     return {
       ...p,
       category: { id: cat?.id || '', icon: cat?.icon || '', nameUz: cat?.nameUz || '' },
-      stock: s.getTotalStockForProduct(p.id),
+      stock: totalStock,
     }
-  }))
+  }), [rawProducts2, rawCategories2, rawWarehouseStock2])
   const warehouses = useDataStore((s) => s.warehouses)
   const categories = useDataStore((s) => s.categories)
 
@@ -1183,14 +1191,18 @@ function ProductsView() {
   const { toast } = useToast()
 
   // Subscribe to store data
-  const products = useDataStore((s) => s.products.map((p) => {
-    const cat = s.categories.find((c) => c.id === p.categoryId)
+  const rawProducts3 = useDataStore((s) => s.products)
+  const rawCategories3 = useDataStore((s) => s.categories)
+  const rawWarehouseStock3 = useDataStore((s) => s.warehouseStock)
+  const products = useMemo(() => rawProducts3.map((p) => {
+    const cat = rawCategories3.find((c) => c.id === p.categoryId)
+    const totalStock = rawWarehouseStock3.filter((ws) => ws.productId === p.id).reduce((sum, ws) => sum + ws.quantity, 0)
     return {
       ...p,
       category: { id: cat?.id || '', icon: cat?.icon || '', nameUz: cat?.nameUz || '' },
-      stock: s.getTotalStockForProduct(p.id),
+      stock: totalStock,
     }
-  }))
+  }), [rawProducts3, rawCategories3, rawWarehouseStock3])
   const categories = useDataStore((s) => s.categories)
 
   // Simulate initial loading
@@ -1507,26 +1519,28 @@ export function AdminPanel() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null)
 
-  // Subscribe to orders from store
+  // Subscribe to raw store data (stable references)
   const orders = useDataStore((s) => s.orders)
+  const rawWarehouses = useDataStore((s) => s.warehouses)
+  const rawStock = useDataStore((s) => s.warehouseStock)
 
-  // Subscribe to warehouse data from store
-  const warehouseStockCounts = useDataStore((s) => {
+  // Derive warehouse counts with useMemo (stable reference, no infinite loop)
+  const warehouseStockCounts = useMemo(() => {
     const counts: Record<string, { stock: number; orders: number }> = {}
-    s.warehouseStock.forEach((ws) => {
+    rawStock.forEach((ws) => {
       if (!counts[ws.warehouseId]) counts[ws.warehouseId] = { stock: 0, orders: 0 }
       if (ws.quantity > 0) counts[ws.warehouseId].stock++
     })
-    // Count orders per warehouse
-    s.orders.forEach((o) => {
+    orders.forEach((o) => {
       if (o.warehouseId && counts[o.warehouseId]) counts[o.warehouseId].orders++
     })
     return counts
-  })
-  const warehouses = useDataStore((s) => s.warehouses.map((w) => ({
+  }, [rawStock, orders])
+
+  const warehouses = useMemo(() => rawWarehouses.map((w) => ({
     ...w,
     _count: { stock: warehouseStockCounts[w.id]?.stock || 0, orders: warehouseStockCounts[w.id]?.orders || 0 },
-  })))
+  })), [rawWarehouses, warehouseStockCounts])
 
   // Add warehouse dialog
   const [newWhName, setNewWhName] = useState('')

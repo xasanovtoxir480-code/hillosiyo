@@ -926,12 +926,12 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
                     <Plus className="h-3 w-3 mr-1" /> Yangi mahsulot
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
                   <DialogHeader>
                     <DialogTitle>Yangi mahsulot qo&apos;shish</DialogTitle>
                     <DialogDescription>Yangi kelgan mahsulotni qo&apos;shing va narxini belgilang</DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-4 py-4 overflow-y-auto flex-1">
                     <ImageUploader value={newProdImage} onChange={setNewProdImage} label='Mahsulot rasmi' />
                     <div className="space-y-2">
                       <Label>Mahsulot nomi (o&apos;zbekcha)</Label>
@@ -972,7 +972,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
                       </div>
                     </div>
                   </div>
-                  <DialogFooter>
+                  <DialogFooter className="mt-auto pt-2 border-t">
                     <Button variant="outline" onClick={() => setNewProductOpen(false)} className="rounded-xl">Bekor</Button>
                     <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl" onClick={handleNewProduct}>
                       <Plus className="h-4 w-4 mr-1" /> Qo&apos;shish
@@ -1307,12 +1307,12 @@ function ProductsView() {
               <Plus className="h-4 w-4 mr-2" /> Yangi mahsulot
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>Yangi mahsulot qo&apos;shish</DialogTitle>
               <DialogDescription>Yangi kelgan mahsulotni qo&apos;shing va narxini belgilang</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <div className="space-y-4 py-4 overflow-y-auto flex-1">
               <ImageUploader value={newImage} onChange={setNewImage} label='Mahsulot rasmi' />
               <div className="space-y-2">
                 <Label>Mahsulot nomi (o&apos;zbekcha)</Label>
@@ -1353,7 +1353,7 @@ function ProductsView() {
                 </div>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="mt-auto pt-2 border-t">
               <Button variant="outline" onClick={() => setAddOpen(false)} className="rounded-xl">Bekor</Button>
               <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl" onClick={handleAddProduct}>
                 <Plus className="h-4 w-4 mr-1" /> Qo&apos;shish

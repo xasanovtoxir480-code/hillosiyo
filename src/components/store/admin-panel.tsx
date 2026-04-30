@@ -1082,14 +1082,14 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
 
       {/* Product Add Dialog (kg/price for order) */}
       <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) setSelectedProduct(null) }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Mahsulot qo&apos;shish</DialogTitle>
             <DialogDescription>
               {selectedProduct?.category.icon} {selectedProduct?.nameUz}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-5 py-4">
+          <div className="space-y-5 py-4 overflow-y-auto flex-1">
             {/* Weight input */}
             <div className="space-y-2">
               <Label htmlFor="input-kg" className="text-base font-semibold">
@@ -1161,7 +1161,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
               </div>
             )}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t shrink-0">
             <Button variant="outline" className="rounded-xl h-11" onClick={() => setAddDialogOpen(false)}>
               Bekor qilish
             </Button>
@@ -1174,14 +1174,14 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
 
       {/* Price Edit Dialog */}
       <Dialog open={editPriceOpen} onOpenChange={(open) => { setEditPriceOpen(open); if (!open) setEditPriceProduct(null) }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Narxni tahrirlash</DialogTitle>
             <DialogDescription>
               {editPriceProduct?.category.icon} {editPriceProduct?.nameUz}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-5 py-4">
+          <div className="space-y-5 py-4 overflow-y-auto flex-1">
             <ImageUploader value={editPriceImage} onChange={setEditPriceImage} label='Mahsulot rasmi' />
             <div className="space-y-2">
               <Label>Mahsulot nomi</Label>
@@ -1209,7 +1209,7 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
               )}
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t shrink-0">
             <Button variant="outline" className="rounded-xl h-11" onClick={() => setEditPriceOpen(false)}>Bekor</Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-11 px-6" onClick={handlePriceUpdate}>
               <Pencil className="h-4 w-4 mr-2" /> Saqlash
@@ -1540,14 +1540,14 @@ function ProductsView() {
 
       {/* Edit Product Dialog */}
       <Dialog open={editOpen} onOpenChange={(open) => { setEditOpen(open); if (!open) setEditProduct(null) }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Narxni tahrirlash</DialogTitle>
             <DialogDescription>
               {editProduct?.category.icon} {editProduct?.nameUz}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-5 py-4">
+          <div className="space-y-5 py-4 overflow-y-auto flex-1">
             <ImageUploader value={editImage} onChange={setEditImage} label='Mahsulot rasmi' />
             <div className="space-y-2">
               <Label>Mahsulot nomi</Label>
@@ -1575,7 +1575,7 @@ function ProductsView() {
               )}
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t shrink-0">
             <Button variant="outline" className="rounded-xl h-11" onClick={() => setEditOpen(false)}>Bekor</Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 rounded-xl h-11 px-6" onClick={handleEditProduct}>
               <Pencil className="h-4 w-4 mr-2" /> Saqlash

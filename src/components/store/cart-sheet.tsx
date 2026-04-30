@@ -167,6 +167,28 @@ export function CartSheet() {
                                     <Plus className="h-3 w-3" />
                                   </Button>
                                 </div>
+                                {/* Quick quantity buttons */}
+                                <div className="flex gap-1 mt-1.5">
+                                  {[3, 5, 10].map((qty) => {
+                                    const wouldExceed = item.quantity + qty > item.maxStock
+                                    return (
+                                      <button
+                                        key={qty}
+                                        type="button"
+                                        disabled={wouldExceed || isMaxed}
+                                        className={cn(
+                                          'flex-1 rounded-md py-1 text-[10px] font-semibold transition-colors',
+                                          wouldExceed || isMaxed
+                                            ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                            : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200'
+                                        )}
+                                        onClick={() => updateQuantity(item.productId, item.quantity + qty)}
+                                      >
+                                        +{qty}
+                                      </button>
+                                    )
+                                  })}
+                                </div>
                                 <span className="font-bold text-sm">
                                   {formatPrice(item.price * item.quantity)}
                                 </span>

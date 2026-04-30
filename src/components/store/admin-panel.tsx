@@ -594,6 +594,22 @@ function WarehouseDetail({
               <div className="space-y-2">
                 <Label>Miqdor</Label>
                 <Input type="number" min="1" placeholder="Miqdor" value={addQuantity} onChange={(e) => setAddQuantity(e.target.value)} />
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[1, 2, 3, 5, 10, 20, 50].map((qty) => (
+                    <button
+                      key={qty}
+                      type="button"
+                      onClick={() => setAddQuantity(String(qty))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        addQuantity === String(qty)
+                          ? 'bg-emerald-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+                      }`}
+                    >
+                      {qty} kg
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -631,6 +647,22 @@ function WarehouseDetail({
               <div className="space-y-2">
                 <Label>Miqdor</Label>
                 <Input type="number" min="1" placeholder="Miqdor" value={transferQuantity} onChange={(e) => setTransferQuantity(e.target.value)} />
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[1, 2, 3, 5, 10, 20, 50].map((qty) => (
+                    <button
+                      key={qty}
+                      type="button"
+                      onClick={() => setTransferQuantity(String(qty))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                        transferQuantity === String(qty)
+                          ? 'bg-blue-600 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700'
+                      }`}
+                    >
+                      {qty} kg
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Qaysi omborga?</Label>
@@ -1076,6 +1108,23 @@ function CreateOrderView({ onCreated }: { onCreated: () => void }) {
                   autoFocus
                 />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">kg</span>
+              </div>
+              {/* Quick quantity buttons */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {[0.5, 1, 1.5, 2, 3, 5, 10, 20].map((qty) => (
+                  <button
+                    key={qty}
+                    type="button"
+                    onClick={() => setInputKg(String(qty))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      inputKg === String(qty)
+                        ? 'bg-emerald-600 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-700'
+                    }`}
+                  >
+                    {qty % 1 === 0 ? `${qty} kg` : `${qty} kg`}
+                  </button>
+                ))}
               </div>
             </div>
 

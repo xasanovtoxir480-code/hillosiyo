@@ -127,6 +127,37 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
     })
   }
 
+  // Add multiple units at once (e.g., +5 kg, +10 kg)
+  const handleAddMultiple = (product: CustomerProduct, qty: number) => {
+    const currentQty = getQuantity(product.id)
+    const stock = product.stock
+    const addQty = Math.min(qty, stock - currentQty)
+
+    if (addQty <= 0) {
+      toast({
+        title: 'Zaxira yetarli emas',
+        description: `Omborda faqat ${stock} ${product.unit} mavjud`,
+        variant: 'destructive',
+        duration: 2000,
+      })
+      return
+    }
+
+    const warehouseInfo = product.warehouses?.[0] || null
+    if (warehouseInfo) {
+      useCartStore.getState().setWarehouseInfo(warehouseInfo)
+    }
+
+    // Set quantity directly
+    const newQty = currentQty + addQty
+    updateQuantity(product.id, newQty)
+    toast({
+      title: `${product.category.icon} ${product.nameUz}`,
+      description: `+${addQty} ${product.unit} savatga qo'shildi`,
+      duration: 2000,
+    })
+  }
+
   return (
     <section id="products" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Search Bar */}
@@ -259,30 +290,54 @@ export function ProductGrid({ categoryId, searchQuery }: ProductGridProps) {
                         <Plus className="h-5 w-5" />
                       </button>
                     ) : (
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          className="rounded-lg w-8 h-8 flex items-center justify-center border border-emerald-300 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
-                          onClick={() => updateQuantity(product.id, quantity - 1)}
-                        >
-                          <Minus className="h-3 w-3 text-emerald-700" />
-                        </button>
-                        <span className="w-8 text-center font-bold text-emerald-700 text-sm">
-                          {quantity}
-                        </span>
-                        <button
-                          type="button"
-                          className={cn(
-                            'rounded-lg w-8 h-8 flex items-center justify-center transition-colors',
-                            isMaxed
-                              ? 'bg-gray-300 cursor-not-allowed text-gray-500'
-                              : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white'
-                          )}
-                          onClick={() => handleAdd(product)}
-                          disabled={isMaxed}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            className="rounded-lg w-8 h-8 flex items-center justify-center border border-emerald-300 hover:bg-emerald-50 active:bg-emerald-100 transition-colors"
+                            onClick={() => updateQuantity(product.id, quantity - 1)}
+                          >
+                            <Minus className="h-3 w-3 text-emerald-700" />
+                          </button>
+                          <span className="w-8 text-center font-bold text-emerald-700 text-sm">
+                            {quantity}
+                          </span>
+                          <button
+                            type="button"
+                            className={cn(
+                              'rounded-lg w-8 h-8 flex items-center justify-center transition-colors',
+                              isMaxed
+                                ? 'bg-gray-300 cursor-not-allowed text-gray-500'
+                                : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white'
+                            )}
+                            onClick={() => handleAdd(product)}
+                            disabled={isMaxed}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+                        {/* Quick add buttons */}
+                        <div className="flex gap-1">
+                          {[3, 5, 10].map((qty) => {
+                            const wouldExceed = quantity + qty > stock
+                            return (
+                              <button
+                                key={qty}
+                                type="button"
+                                disabled={wouldExceed || isMaxed}
+                                className={cn(
+                                  'flex-1 rounded-md py-1 text-[10px] font-semibold transition-colors',
+                                  wouldExceed || isMaxed
+                                    ? 'bg-gray-100 text-gray-300 cursor-not-allowed'
+                                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 active:bg-emerald-200'
+                                )}
+                                onClick={(e) => { e.stopPropagation(); handleAddMultiple(product, qty) }}
+                              >
+                                +{qty}
+                              </button>
+                            )
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>

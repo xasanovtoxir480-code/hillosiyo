@@ -450,11 +450,38 @@ function WarehouseDetail({
   const [transferQuantity, setTransferQuantity] = useState('')
   const [transferToWarehouse, setTransferToWarehouse] = useState('')
 
-  // Subscribe to store data
-  const stock = useDataStore((s) => s.getWarehouseStock(warehouse.id))
+  // Subscribe to store data (raw state only — no getter selectors that cause infinite re-renders)
   const rawProducts = useDataStore((s) => s.products)
   const rawCategories = useDataStore((s) => s.categories)
   const rawWarehouseStock = useDataStore((s) => s.warehouseStock)
+
+  // Derive warehouse stock list from raw data with useMemo (stable reference)
+  const stock = useMemo(() => {
+    return rawWarehouseStock
+      .filter((s) => s.warehouseId === warehouse.id)
+      .map((s) => {
+        const product = rawProducts.find((p) => p.id === s.productId)
+        const category = product
+          ? rawCategories.find((c) => c.id === product.categoryId)
+          : null
+        return {
+          id: s.id,
+          quantity: s.quantity,
+          product: {
+            id: product?.id || '',
+            nameUz: product?.nameUz || '',
+            price: product?.price || 0,
+            unit: product?.unit || '',
+            image: product?.image || '',
+            category: {
+              icon: category?.icon || '',
+              nameUz: category?.nameUz || '',
+            },
+          },
+        }
+      })
+  }, [rawWarehouseStock, rawProducts, rawCategories, warehouse.id])
+
   const products = useMemo(() => rawProducts.map((p) => {
     const cat = rawCategories.find((c) => c.id === p.categoryId)
     const totalStock = rawWarehouseStock.filter((ws) => ws.productId === p.id).reduce((sum, ws) => sum + ws.quantity, 0)
